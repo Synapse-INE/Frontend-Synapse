@@ -3,13 +3,13 @@ import { GraficoCotizaciones } from "./GraficoCotizaciones";
 import { GraficoFuentes } from "./GraficoFuentes";
 import { GraficoPublicacion } from "./GraficoPublicacion";
 
-export function TableroPrecios() {
+export function TableroPrecios({ estadisticas }) {
   return (
-    <section className="tablero" aria-label="Panorama de precios">
+    <section className="tablero" aria-label="Panorama de la consulta">
       <Contenedor className="tablero__grid">
-        <GraficoCotizaciones />
-        <GraficoFuentes />
-        <GraficoPublicacion />
+        <GraficoCotizaciones estadisticas={estadisticas} />
+        <GraficoFuentes estadisticas={estadisticas} />
+        <GraficoPublicacion estadisticas={estadisticas} />
       </Contenedor>
     </section>
   );

@@ -1,45 +1,60 @@
-import { FUENTES_ESTUDIO } from "../../data/precios";
 import { Etiqueta } from "../../components/ui/Etiqueta";
 
-export function GraficoFuentes() {
+export function GraficoFuentes({ estadisticas }) {
+  const { metodos = [], principal, total = 0 } = estadisticas || {};
+
   return (
     <article className="panel panel--dona revelar">
       <div className="panel__cab">
         <div>
-          <Etiqueta>Origen de los datos</Etiqueta>
-          <h2>Fuentes del estudio</h2>
-          <p>Se recomienda que más del 50% provenga del mercado relevante.</p>
+          <Etiqueta>Modalidad</Etiqueta>
+          <h2>Cómo se compró</h2>
+          <p>{total ? "Modalidades de compra en esta consulta." : "Sin renglones en esta consulta."}</p>
         </div>
         <div className="dato-grande dato-grande--lima">
-          <span>Mercado</span>
-          <strong>+50%</strong>
+          <span>{principal?.etiqueta ?? "Modalidad"}</span>
+          <strong>{principal ? `${principal.porcentaje}%` : "—"}</strong>
         </div>
       </div>
       <div className="panel__graf">
-        <div className="dona-wrap">
-          <svg className="dona" viewBox="0 0 200 200" aria-hidden="true">
-            <circle className="dona-fondo" cx="100" cy="100" r="72" />
-            <circle className="dona-a" cx="100" cy="100" r="72" />
-            <circle className="dona-b" cx="100" cy="100" r="72" />
-            <circle className="dona-c" cx="100" cy="100" r="72" />
-            <text x="100" y="96" className="dona-num">
-              +50%
-            </text>
-            <text x="100" y="116" className="dona-sub">
-              mercado
-            </text>
-          </svg>
-          <ul className="leyenda">
-            {FUENTES_ESTUDIO.map((fuente) => (
-              <li key={fuente.clave}>
-                <i className={`sw ${fuente.clase}`} />
-                <span className="leyenda__full">{fuente.etiqueta}</span>
-                <span className="leyenda__corto">{fuente.corto}</span>
-                <b>{fuente.porcentaje}%</b>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {metodos.length ? (
+          <div className="dona-wrap">
+            <svg className="dona" viewBox="0 0 200 200" aria-hidden="true">
+              <circle className="dona-fondo" cx="100" cy="100" r="72" />
+              {metodos.map((metodo, i) => (
+                <circle
+                  key={metodo.clave}
+                  className={`dona-a dona-${["a", "b", "c"][i]}`}
+                  cx="100"
+                  cy="100"
+                  r="72"
+                  style={{
+                    strokeDasharray: `${metodo.largo} ${metodo.circunferencia}`,
+                    strokeDashoffset: -metodo.offset,
+                  }}
+                />
+              ))}
+              <text x="100" y="96" className="dona-num">
+                {principal ? `${principal.porcentaje}%` : ""}
+              </text>
+              <text x="100" y="116" className="dona-sub">
+                {principal?.etiqueta ?? ""}
+              </text>
+            </svg>
+            <ul className="leyenda">
+              {metodos.map((metodo) => (
+                <li key={metodo.clave}>
+                  <i className={`sw ${metodo.clase}`} />
+                  <span className="leyenda__full">{metodo.etiqueta}</span>
+                  <span className="leyenda__corto">{metodo.corto}</span>
+                  <b>{metodo.porcentaje}%</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="panel__vacio">Sin datos para graficar.</p>
+        )}
       </div>
     </article>
   );
