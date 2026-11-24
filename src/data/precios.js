@@ -1,83 +1,76 @@
 export const PRECIOS = [
   {
+    id: "anf-1",
+    correlativo: 1,
+    modalidad: "Bienes y suministros importados",
+    nog: "NA",
+    evento: "CBySI 08-2023-UNOP",
+    producto: "Anfotericina B Complejo Lipídico Vial 50mg/10ml",
+    caracteristicas:
+      "Anfotericina B Complejo Lipídico Vial 50mg/10ml. Suspensión inyectable IV.",
+    presentacion: "Vial",
+    precio: 1347.99,
+    fechaPublicacion: "2023-11-10",
+    categoriaId: "",
+    vigenciaHasta: "1969-12-31",
+  },
+  {
+    id: "papel-1",
+    correlativo: 2,
+    modalidad: "Subasta electrónica inversa",
+    nog: "5290163",
+    evento: "Procedimiento regulado por el Art. 54Bis",
+    producto: "Papel Bond tamaño carta 75 gr.",
+    caracteristicas:
+      "Papel Bond para impresión y fotocopiado, tamaño carta (8 ½\" x 11\"); de 75 gramos por metro cuadrado.",
+    presentacion: "Resma",
+    precio: 23.3,
+    fechaPublicacion: "2016-09-02",
+    categoriaId: "papeleria-y-articulos-de-libreria",
+    vigenciaHasta: "2026-12-31",
+  },
+  {
     id: "lap-8",
-    bien: "Computadora portátil",
-    corto: "Laptop 8 GB",
-    especificacion: '8 GB RAM, 256 GB SSD, 14"',
-    unidad: "Unidad",
+    correlativo: 3,
+    modalidad: "Contrato abierto",
+    nog: "18765432",
+    evento: "CA-INE-2026-014",
+    producto: "Computadora portátil 8 GB",
+    caracteristicas: '8 GB RAM, 256 GB SSD, 14"',
+    presentacion: "Unidad",
     precio: 4850,
-    metodo: "Mediana",
-    estado: "publicado",
-    comparativo: 76,
+    fechaPublicacion: "2026-11-01",
+    categoriaId: "equipo-de-computacion-electronicos",
+    vigenciaHasta: "2027-11-01",
   },
   {
     id: "lap-16",
-    bien: "Computadora portátil",
-    corto: "Laptop 16 GB",
-    especificacion: '16 GB RAM, 512 GB SSD, 15.6"',
-    unidad: "Unidad",
+    correlativo: 4,
+    modalidad: "Contrato abierto",
+    nog: "18765433",
+    evento: "CA-INE-2026-018",
+    producto: "Computadora portátil 16 GB",
+    caracteristicas: '16 GB RAM, 512 GB SSD, 15.6"',
+    presentacion: "Unidad",
     precio: 6420,
-    metodo: "Promedio",
-    estado: "publicado",
-    comparativo: 100,
+    fechaPublicacion: "2026-10-01",
+    categoriaId: "equipo-de-computacion-electronicos",
+    vigenciaHasta: "2027-10-01",
   },
   {
     id: "imp",
-    bien: "Impresora multifuncional",
-    corto: "Impresora",
-    especificacion: "Láser, dúplex, red Ethernet",
-    unidad: "Unidad",
+    correlativo: 5,
+    modalidad: "Subasta electrónica inversa",
+    nog: "17654321",
+    evento: "SEI-2026-092",
+    producto: "Impresora multifuncional",
+    caracteristicas: "Láser, dúplex, red Ethernet",
+    presentacion: "Unidad",
     precio: 1975,
-    metodo: "Moda",
-    estado: "publicado",
-    comparativo: 31,
+    fechaPublicacion: "2026-09-01",
+    categoriaId: "maquinas-impresoras",
+    vigenciaHasta: "2027-09-01",
   },
-  {
-    id: "esc",
-    bien: "Escritorio escolar",
-    corto: "Escritorio",
-    especificacion: "Madera y metal, para primaria",
-    unidad: "Unidad",
-    precio: 385,
-    metodo: "Mediana",
-    estado: "publicado",
-    comparativo: 12,
-  },
-  {
-    id: "kit",
-    bien: "Kit de papelería institucional",
-    corto: "Kit papelería",
-    especificacion: "Resma carta, folders y tóner",
-    unidad: "Kit",
-    precio: 248.5,
-    metodo: "Promedio",
-    estado: "revision",
-    comparativo: 8,
-  },
-];
-
-export const COTIZACIONES_CASO = [
-  { proveedor: "A", monto: 4200, altura: 62 },
-  { proveedor: "B", monto: 4500, altura: 70 },
-  { proveedor: "C", monto: 4800, altura: 78, referencia: true },
-  { proveedor: "D", monto: 5100, altura: 86 },
-  { proveedor: "E", monto: 5400, altura: 96 },
-];
-
-export const PRECIO_REFERENCIA_CASO = 4850;
-
-export const FUENTES_ESTUDIO = [
-  { clave: "mercado", etiqueta: "Mercado relevante", corto: "Mercado rel.", porcentaje: 55, clase: "sw-azul" },
-  { clave: "guatecompras", etiqueta: "GUATECOMPRAS", corto: "GUATECOMPRAS", porcentaje: 25, clase: "sw-naranja" },
-  { clave: "historicos", etiqueta: "Históricos INE", corto: "Históricos INE", porcentaje: 20, clase: "sw-lima" },
-];
-
-export const PUBLICACION_MENSUAL = [
-  { mes: "Jul", x: 16, y: 108 },
-  { mes: "Ago", x: 88, y: 86 },
-  { mes: "Sep", x: 160, y: 64 },
-  { mes: "Oct", x: 232, y: 52 },
-  { mes: "Nov", x: 344, y: 28 },
 ];
 
 export const MODALIDADES = [
@@ -87,16 +80,36 @@ export const MODALIDADES = [
 ];
 
 export function formatearQuetzales(valor) {
-  return `Q ${valor.toLocaleString("es-GT", {
+  return `Q ${Number(valor).toLocaleString("es-GT", {
     minimumFractionDigits: valor % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   })}`;
 }
 
-export function filtrarPrecios(lista, consulta) {
-  const q = consulta.trim().toLowerCase();
-  if (!q) return lista;
-  return lista.filter((item) =>
-    `${item.bien} ${item.corto} ${item.especificacion} ${item.metodo}`.toLowerCase().includes(q)
-  );
+export function formatearFecha(valor) {
+  if (!fechaRegistrada(valor)) return "No registrada";
+  const [anio, mes, dia] = String(valor).split("-");
+  if (!dia) return String(valor);
+  return `${dia}/${mes}/${anio}`;
+}
+
+export function textoOpcional(valor) {
+  const texto = String(valor ?? "").trim();
+  if (!texto || texto.toUpperCase() === "NA") return "No aplica";
+  return texto;
+}
+
+export function fechaRegistrada(valor) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(valor ?? "")) && String(valor) > "1970-01-01";
+}
+
+export function estaVigente(valor, hoy = hoyIso()) {
+  return fechaRegistrada(valor) && String(valor) >= hoy;
+}
+
+function hoyIso() {
+  const ahora = new Date();
+  const mes = String(ahora.getMonth() + 1).padStart(2, "0");
+  const dia = String(ahora.getDate()).padStart(2, "0");
+  return `${ahora.getFullYear()}-${mes}-${dia}`;
 }
