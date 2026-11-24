@@ -62,7 +62,8 @@ export async function enviarSolicitud({ institucion, bien, modalidad, descripcio
       Number(respuesta.headers.get("Retry-After")) || undefined
     );
   }
-  return respuesta.json(); // { numeroSeguimiento }
+  // Puede traer { numeroSeguimiento } o venir vacía: en los dos casos la solicitud se envió bien.
+  return respuesta.json().catch(() => ({}));
 }
 
 // Textos para el usuario según el code estable del backend.
