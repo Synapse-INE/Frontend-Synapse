@@ -1,65 +1,37 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { filtrarPrecios, PRECIOS } from "../../data/precios";
-import { Boton } from "../../components/ui/Boton";
 import { Contenedor } from "../../components/ui/Contenedor";
-import { Etiqueta } from "../../components/ui/Etiqueta";
-import { ComparativoPrecios } from "./ComparativoPrecios";
+import { usePublicacion } from "../../hooks/usePublicacion";
+import { consultaAParams, consultaDesdeUrl } from "../../servicios/catalogo";
+import { BuscadorPublicacion } from "./BuscadorPublicacion";
+import { EncabezadoPublicacion } from "./EncabezadoPublicacion";
+import { ResumenConsulta } from "./ResumenConsulta";
 import { TablaPrecios } from "./TablaPrecios";
 
 export function ListaPreciosPage() {
   const [params, setParams] = useSearchParams();
-  const inicial = params.get("q") ?? "";
-  const [consulta, setConsulta] = useState(inicial);
+  const clave = params.toString();
+  const consulta = useMemo(() => consultaDesdeUrl(new URLSearchParams(clave)), [clave]);
+  const publicacion = usePublicacion(consulta);
 
-  const filtrados = useMemo(() => filtrarPrecios(PRECIOS, consulta), [consulta]);
-
-  function buscar(evento) {
-    evento.preventDefault();
-    const q = consulta.trim();
-    setParams(q ? { q } : {});
+  function buscar(siguiente) {
+    setParams(consultaAParams(siguiente));
   }
 
   return (
     <section className="pagina bloque revelar">
       <Contenedor>
-        <div className="bloque__cab">
-          <div>
-            <Etiqueta>Lista de precios</Etiqueta>
-            <h2>Precios de referencia en el mercado</h2>
-            <p className="bloque__intro">
-              Consulta renglones publicados por la DPIR. Usa el buscador para filtrar por bien, especificación o método
-              de cálculo.
-            </p>
-          </div>
-          <Boton variante="naranja" to="/solicitud">
-            Solicitar un renglón nuevo
-          </Boton>
-        </div>
-
-        <form className="buscador" role="search" onSubmit={buscar} style={{ marginBottom: 20, maxWidth: 640 }}>
-          <label className="sr-only" htmlFor="lista-q">
-            Filtrar lista
-          </label>
-          <input
-            id="lista-q"
-            type="search"
-            value={consulta}
-            onChange={(e) => setConsulta(e.target.value)}
-            placeholder="Filtrar por bien o servicio…"
-          />
-          <Boton type="submit" variante="azul">
-            Filtrar
-          </Boton>
-        </form>
-
+        <EncabezadoPublicacion />
+        <BuscadorPublicacion inicial={consulta} onBuscar={buscar} />
+        {publicacion.error ? (
+          <p className="nota" role="alert">
+            {publicacion.error}
+          </p>
+        ) : null}
+        <ResumenConsulta indicadores={publicacion.estadisticas.indicadores} />
         <div className="precios-vista">
-          <ComparativoPrecios items={filtrados} />
-          <TablaPrecios items={filtrados} />
+          <TablaPrecios items={publicacion.items} />
         </div>
-        <p className="nota">
-          Montos ilustrativos del caso DPIR. En producción se cargan desde la publicación mensual oficial.
-        </p>
       </Contenedor>
     </section>
   );
