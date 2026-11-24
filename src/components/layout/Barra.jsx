@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import logoIne from "../../assets/logo-ine.png";
+import { rutaDeInicio, useSesion } from "../../features/portal/sesion";
 import { Boton } from "../ui/Boton";
 
 export function Barra() {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [submenuAbierto, setSubmenuAbierto] = useState(false);
   const itemRef = useRef(null);
+  const { usuario, salir } = useSesion();
 
   useEffect(() => {
     function alClic(evento) {
@@ -62,6 +64,33 @@ export function Barra() {
               </li>
             </ul>
           </li>
+          {usuario ? (
+            <>
+              <li>
+                <NavLink className="menu__enlace" to={rutaDeInicio(usuario.rol)} onClick={cerrar}>
+                  Mi portal
+                </NavLink>
+              </li>
+              <li>
+                <button
+                  className="menu__enlace menu__salir"
+                  type="button"
+                  onClick={() => {
+                    salir();
+                    cerrar();
+                  }}
+                >
+                  Salir
+                </button>
+              </li>
+            </>
+          ) : (
+            <li>
+              <NavLink className="menu__enlace" to="/login" onClick={cerrar}>
+                Ingresar
+              </NavLink>
+            </li>
+          )}
         </ul>
 
         <Link className="marca" to="/" onClick={cerrar}>

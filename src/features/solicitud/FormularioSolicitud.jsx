@@ -273,80 +273,12 @@ export function FormularioSolicitud({ intro }) {
         </div>
       </div>
 
-      <div className="sol-adj">
-        <span className="formulario__titulo-campo">
-          Documentos de respaldo <span className="formulario__opcional">(opcional)</span>
-        </span>
-        <div
-          className={`zona-adj${arrastrando ? " zona-adj--activa" : ""}`}
-          role="button"
-          tabIndex={0}
-          aria-label="Seleccionar archivos o arrastrarlos aquí"
-          onClick={() => inputArchivo.current?.click()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              inputArchivo.current?.click();
-            }
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setArrastrando(true);
-          }}
-          onDragLeave={() => setArrastrando(false)}
-          onDrop={alSoltar}
-        >
-          <Icono nombre="nube" tamano={38} grosor={1.6} />
-          <p>
-            <b>Selecciona</b> o arrastra tus archivos aquí
-          </p>
-          <small>
-            {TEXTO_TIPOS} · máx. {MAX_ARCHIVOS} archivos de 10 MB
-          </small>
-          <input
-            ref={inputArchivo}
-            type="file"
-            multiple
-            hidden
-            accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg"
-            onChange={(e) => {
-              if (e.target.files) agregarArchivos(e.target.files);
-              e.target.value = "";
-            }}
-          />
-        </div>
-        {errorArchivos && (
-          <p role="alert" className="formulario__error">
-            ⚠ {errorArchivos}
-          </p>
-        )}
-        {adjuntos.length > 0 && (
-          <ul className="archivos">
-            {adjuntos.map((archivo, i) => {
-              const tipo = tipoDeArchivo(archivo.name);
-              return (
-                <li key={`${archivo.name}-${i}`} className="archivo">
-                  <i className={`archivo__tipo archivo__tipo--${tipo.clase}`}>{tipo.texto}</i>
-                  <span className="archivo__nombre">
-                    {archivo.name}
-                    <small>{formatoTamano(archivo.size)}</small>
-                  </span>
-                  <button type="button" onClick={() => quitarArchivo(i)} aria-label={`Quitar ${archivo.name}`}>
-                    <Icono nombre="x" tamano={14} grosor={2.2} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
       <form className="formulario sol-form" onSubmit={enviar} noValidate>
         <div className="paso">
           <b>1</b>Datos de la institución
         </div>
 
-        <label>
+        <label className="sol-medio">
           Institución
           <div className="campo">
             <Icono nombre="edificio" />
@@ -368,7 +300,7 @@ export function FormularioSolicitud({ intro }) {
           )}
         </label>
 
-        <label>
+        <label className="sol-medio">
           Modalidad
           <div className="campo">
             <Icono nombre="lista" />
@@ -453,7 +385,74 @@ export function FormularioSolicitud({ intro }) {
           )}
         </label>
 
-        <Turnstile onToken={setToken} reiniciar={reiniciarTurnstile} />
+        <div className="paso paso--sep">
+          <b>3</b>Documentos de respaldo <span className="formulario__opcional">(opcional)</span>
+        </div>
+
+        <div className="sol-adj">
+          <div
+            className={`zona-adj${arrastrando ? " zona-adj--activa" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-label="Seleccionar archivos o arrastrarlos aquí"
+            onClick={() => inputArchivo.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                inputArchivo.current?.click();
+              }
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setArrastrando(true);
+            }}
+            onDragLeave={() => setArrastrando(false)}
+            onDrop={alSoltar}
+          >
+            <Icono nombre="nube" tamano={38} grosor={1.6} />
+            <p>
+              <b>Selecciona</b> o arrastra tus archivos aquí
+            </p>
+            <small>
+              {TEXTO_TIPOS} · máx. {MAX_ARCHIVOS} archivos de 10 MB
+            </small>
+            <input
+              ref={inputArchivo}
+              type="file"
+              multiple
+              hidden
+              accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg"
+              onChange={(e) => {
+                if (e.target.files) agregarArchivos(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          {errorArchivos && (
+            <p role="alert" className="formulario__error">
+              ⚠ {errorArchivos}
+            </p>
+          )}
+          {adjuntos.length > 0 && (
+            <ul className="archivos">
+              {adjuntos.map((archivo, i) => {
+                const tipo = tipoDeArchivo(archivo.name);
+                return (
+                  <li key={`${archivo.name}-${i}`} className="archivo">
+                    <i className={`archivo__tipo archivo__tipo--${tipo.clase}`}>{tipo.texto}</i>
+                    <span className="archivo__nombre">
+                      {archivo.name}
+                      <small>{formatoTamano(archivo.size)}</small>
+                    </span>
+                    <button type="button" onClick={() => quitarArchivo(i)} aria-label={`Quitar ${archivo.name}`}>
+                      <Icono nombre="x" tamano={14} grosor={2.2} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
 
         {errorGeneral && (
           <p role="alert" className="formulario__error formulario__error--general">
@@ -461,15 +460,22 @@ export function FormularioSolicitud({ intro }) {
           </p>
         )}
 
-        <Boton type="submit" variante="naranja" bloque className="btn-enviar" disabled={enviando}>
-          {enviando ? (
-            "Enviando…"
-          ) : (
-            <>
-              Enviar solicitud <Icono nombre="flecha" tamano={18} grosor={2.2} />
-            </>
-          )}
-        </Boton>
+        <div className="sol-pie">
+          <div className="sol-turnstile">
+            <Turnstile onToken={setToken} reiniciar={reiniciarTurnstile} />
+          </div>
+          <div className="sol-acciones">
+            <Boton type="submit" variante="naranja" className="btn-enviar" disabled={enviando}>
+              {enviando ? (
+                "Enviando…"
+              ) : (
+                <>
+                  Enviar solicitud <Icono nombre="flecha" tamano={18} grosor={2.2} />
+                </>
+              )}
+            </Boton>
+          </div>
+        </div>
         <p className="formulario__confianza">
           <Icono nombre="candado" tamano={14} grosor={1.9} /> Tus datos se usan solo para esta solicitud. El envío
           formal sigue el oficio institucional del INE.

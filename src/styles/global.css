@@ -1484,25 +1484,31 @@ button, input, select { font-family: inherit; }
 }
 
 /* ===== Formulario de solicitud: distribución en dos columnas y mejoras de UX/UI ===== */
-.sol-info { display: grid; gap: 20px; align-content: start; }
-.sol-adj { align-self: start; }
-.sol-adj .formulario__error { margin-top: 8px; }
-
-@media (min-width: 981px) {
-  .solicitud__caja {
-    grid-template-columns: 1fr 1.05fr;
-    grid-template-areas: "info form" "adj form";
-    grid-template-rows: auto 1fr;
-    gap: 20px 44px;
-    align-items: start;
-  }
-  .sol-info { grid-area: info; }
-  .sol-adj { grid-area: adj; }
-  .sol-form { grid-area: form; }
-  .exito { grid-area: 1 / 1 / 3 / 3; }
+/* Tarjeta centrada, una sola columna */
+.contenedor.solicitud__caja {
+  width: min(1040px, calc(100% - 48px));
+  grid-template-columns: 1fr;
+  gap: 28px;
+  padding: 48px 56px;
 }
-@media (max-width: 980px) {
-  .exito { grid-column: 1 / -1; }
+.sol-info { display: grid; gap: 22px; text-align: center; }
+.sol-info h2 { margin-bottom: 0.3em; }
+.sol-info p { margin-left: auto; margin-right: auto; max-width: 56ch; }
+.sol-form { gap: 16px 24px; }
+@media (min-width: 761px) {
+  .sol-form { grid-template-columns: 1fr 1fr; }
+  .sol-form > * { grid-column: 1 / -1; }
+  .sol-form > .sol-medio { grid-column: auto; }
+}
+.sol-pie { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px 24px; margin-top: 6px; }
+.sol-turnstile, .sol-acciones { display: flex; justify-content: center; }
+.formulario__confianza { justify-content: center; text-align: center; }
+.exito { grid-column: 1 / -1; }
+@media (max-width: 1000px) {
+  .contenedor.solicitud__caja { padding: 40px 32px; }
+}
+@media (max-width: 720px) {
+  .contenedor.solicitud__caja { width: calc(100% - 32px); padding: 28px 18px; }
 }
 
 .panel-req { background: var(--fondo); border: 1px solid var(--linea); border-radius: 16px; padding: 18px 20px; }
@@ -1511,25 +1517,29 @@ button, input, select { font-family: inherit; }
 .panel-req__cab span { font-size: 0.82rem; font-weight: 700; color: var(--muted); }
 .progreso { height: 7px; background: var(--linea); border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
 .progreso i { display: block; height: 100%; background: linear-gradient(90deg, var(--lima), var(--lima-fuerte)); border-radius: 99px; transition: width 0.35s ease; }
-.panel-req .checks { margin-top: 4px; }
+.panel-req { text-align: left; }
+.panel-req .checks { margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; }
+@media (min-width: 1000px) { .panel-req .checks { grid-template-columns: repeat(4, 1fr); column-gap: 14px; } .panel-req .checks li { padding-left: 26px; font-size: 0.9rem; line-height: 1.3; } }
+@media (max-width: 720px) { .panel-req .checks { grid-template-columns: 1fr; } }
 .panel-req .checks li { padding-top: 7px; padding-bottom: 7px; font-size: 0.95rem; transition: color 0.2s ease; }
 .panel-req .checks li.ok { color: var(--ink); font-weight: 600; }
 .panel-req .checks li.pend::before { background: #fff; border: 2px solid #c4cedd; box-sizing: border-box; }
 
 .formulario__opcional { font-weight: 500; color: var(--muted); }
 .zona-adj {
-  display: grid; justify-items: center; gap: 6px; text-align: center;
-  padding: 22px 16px; border: 2px dashed #b9c8e3; border-radius: 14px;
+  display: grid; grid-template-columns: auto 1fr; justify-items: start; align-items: center; column-gap: 20px; row-gap: 2px; text-align: left;
+  padding: 20px 26px; border: 2px dashed #b9c8e3; border-radius: 14px;
   background: var(--azul-suave); cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease;
 }
-.zona-adj svg { color: var(--azul); }
+.zona-adj svg { color: var(--azul); grid-row: 1 / 3; width: 44px; height: 44px; }
+@media (max-width: 560px) { .zona-adj { grid-template-columns: 1fr; justify-items: center; text-align: center; } .zona-adj svg { grid-row: auto; } }
 .zona-adj p { margin: 0; font-size: 0.92rem; }
 .zona-adj p b { color: var(--azul); text-decoration: underline; }
 .zona-adj small { color: var(--muted); font-size: 0.78rem; }
 .zona-adj:hover, .zona-adj--activa { border-color: var(--azul); background: #dde8f8; }
 .zona-adj:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
 
-.archivos { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.archivos { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .archivo { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 12px; background: #fff; }
 .archivo__tipo { font-style: normal; flex: none; width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 0.68rem; letter-spacing: 0.03em; }
 .archivo__tipo--pdf { background: #c8382e; }
@@ -1543,7 +1553,7 @@ button, input, select { font-family: inherit; }
 
 .paso { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 1.05rem; color: var(--azul-profundo); }
 .paso b { width: 28px; height: 28px; border-radius: 50%; background: var(--azul); color: #fff; display: grid; place-items: center; font-size: 0.85rem; flex: none; }
-.paso--sep { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--linea); }
+.paso--sep { margin-top: 10px; padding-top: 20px; border-top: 1px solid var(--linea); }
 
 .campo { position: relative; }
 .campo svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #8493ab; pointer-events: none; }
@@ -1557,7 +1567,7 @@ button, input, select { font-family: inherit; }
 .ejemplo:hover { background: #dde8f8; border-color: var(--azul); }
 
 .formulario__pie-campo { display: flex; justify-content: space-between; gap: 12px; font-size: 0.78rem; font-weight: 500; color: var(--muted); }
-.btn-enviar { padding: 15px; font-size: 1.05rem; border-radius: 12px; box-shadow: 0 8px 20px rgba(239, 121, 22, 0.28); }
+.btn-enviar { min-width: 300px; padding: 15px 28px; font-size: 1.05rem; border-radius: 12px; box-shadow: 0 8px 20px rgba(239, 121, 22, 0.28); }
 .btn-enviar:disabled { opacity: 0.65; cursor: wait; transform: none; }
 .formulario__confianza { display: flex; align-items: flex-start; gap: 6px; font-size: 0.78rem; color: var(--muted); margin: 0; }
 .formulario__confianza svg { flex: none; margin-top: 2px; }
@@ -1583,3 +1593,5 @@ button, input, select { font-family: inherit; }
   .exito__seguimiento { flex-direction: column; padding: 14px; }
   .exito__seguimiento strong { font-size: 1.35rem; }
 }
+
+.sol-adj .formulario__error { margin-top: 8px; }
