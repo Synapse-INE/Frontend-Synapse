@@ -16,7 +16,7 @@ export function InicioPage() {
       <HeroBanner />
       <ConsultaRapida />
       <TableroPrecios estadisticas={publicacion.estadisticas} />
-      <ResumenLista items={publicacion.items} comparativo={publicacion.estadisticas.comparativo} />
+      <ResumenLista items={publicacion.items} indicadores={publicacion.estadisticas.indicadores} />
       <MarcoUso />
       <ProcesoPasos />
       <Metodologia />
