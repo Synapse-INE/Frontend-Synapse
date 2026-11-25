@@ -1,17 +1,16 @@
 import { Link } from "react-router-dom";
 import { Contenedor } from "../../components/ui/Contenedor";
 import { Etiqueta } from "../../components/ui/Etiqueta";
+import { ESTADOS_SOLICITUD, leerSolicitudes } from "../../data/solicitudes";
 import { ROLES } from "../../sesion/roles";
 import { useSesion } from "../../sesion/Sesion";
 
-const SOLICITUDES = [
-  { titulo: "500 computadoras portátiles", estado: "En revisión", fecha: "12/11/2026" },
-  { titulo: "Papel bond tamaño carta", estado: "Recibida", fecha: "20/11/2026" },
-];
-
 export function CuentaPage() {
   const { sesion } = useSesion();
-  const rol = ROLES[sesion?.rol] ?? ROLES.externo;
+  const rol = ROLES[sesion?.rol] ?? ROLES.solicitante;
+  const solicitudes = leerSolicitudes();
+  const propias = solicitudes.filter((item) => item.creadaPorId === sesion?.id);
+  const aprobada = sesion?.estadoRevision === "aprobado";
 
   return (
     <section className="pagina bloque">
@@ -24,31 +23,31 @@ export function CuentaPage() {
           </div>
         </header>
 
-        {sesion?.rol === "trabajador" ? (
+        {sesion?.rol === "solicitante" && !aprobada ? (
           <div className="acceso-lista">
-            <h3>Solicitudes</h3>
-            {SOLICITUDES.map((item) => (
-              <article key={item.titulo}>
-                <strong>{item.titulo}</strong>
-                <span>{item.estado}</span>
-                <small>{item.fecha}</small>
-              </article>
-            ))}
-            <Link className="btn btn--naranja" to="/solicitud">Nueva solicitud</Link>
+            <h3>Cuenta en revisión</h3>
+            <p>
+              {sesion.institucion || "La institución"} quedó registrada
+              {sesion.cargo ? ` con el cargo de ${sesion.cargo}` : ""}. El INE revisa el perfil antes de habilitar las solicitudes.
+            </p>
           </div>
         ) : null}
 
-        {sesion?.rol === "jefe" ? (
-          <div className="acceso-lista">
-            <h3>Bandeja de revisión</h3>
-            {SOLICITUDES.map((item) => (
-              <article key={item.titulo}>
-                <strong>{item.titulo}</strong>
-                <span>{item.estado}</span>
-                <small>Trabajador · {item.fecha}</small>
-              </article>
-            ))}
-          </div>
+        {sesion?.rol === "solicitante" && aprobada ? (
+          <Lista
+            titulo="Mis solicitudes"
+            filas={propias}
+            vacio="Aún no hay solicitudes de esta institución."
+            accion={<Link className="btn btn--naranja" to="/solicitud">Nueva solicitud</Link>}
+          />
+        ) : null}
+
+        {sesion?.rol === "trabajador" ? (
+          <Lista
+            titulo="Solicitudes recibidas"
+            filas={solicitudes}
+            vacio="Aún no entra ninguna solicitud."
+          />
         ) : null}
 
         {sesion?.rol === "proveedor" ? (
@@ -59,27 +58,30 @@ export function CuentaPage() {
           </div>
         ) : null}
 
-        {sesion?.rol === "externo" ? (
-          <div className="acceso-lista">
-            <h3>Cuenta registrada</h3>
-            <p>El acceso se habilita desde la gestión del portal. Mientras tanto, la cuenta queda guardada con estos datos.</p>
-          </div>
-        ) : null}
-
         {sesion?.rol === "admin" ? (
           <div className="acceso-lista">
             <h3>Gestión</h3>
-            <p>Las cuentas, las categorías y la bitácora se trabajan en la vista de administración.</p>
+            <p>Las cuentas, las modalidades y la bitácora se trabajan en la vista de administración.</p>
             <Link className="btn btn--naranja" to="/admin">Ir a administración</Link>
           </div>
         ) : null}
-
-        {!sesion ? (
-          <p>
-            <Link className="btn btn--azul" to="/ingresar">Ingresar</Link>
-          </p>
-        ) : null}
       </Contenedor>
     </section>
+  );
+}
+
+function Lista({ titulo, filas, vacio, accion = null }) {
+  return (
+    <div className="acceso-lista">
+      <h3>{titulo}</h3>
+      {filas.length === 0 ? <p>{vacio}</p> : filas.map((item) => (
+        <article key={item.id}>
+          <strong>{item.titulo}</strong>
+          <span>{ESTADOS_SOLICITUD[item.estado] || item.estado}</span>
+          <small>{item.institucionSolicitante} · {item.productos?.length || 0} producto{item.productos?.length === 1 ? "" : "s"}</small>
+        </article>
+      ))}
+      {accion}
+    </div>
   );
 }

@@ -127,7 +127,7 @@ export function Barra() {
                 <div className="barra__popover" role="dialog" aria-label="Sesión">
                   <p>{rol.resumen}</p>
                   <Link to={rol.destino} onClick={cerrar}>Mi espacio</Link>
-                  {sesion.rol === "trabajador" ? <Link to="/solicitud" onClick={cerrar}>Nueva solicitud</Link> : null}
+                  {sesion.rol === "solicitante" && sesion.estadoRevision === "aprobado" ? <Link to="/solicitud" onClick={cerrar}>Nueva solicitud</Link> : null}
                   {sesion.rol === "proveedor" ? <Link to="/proveedor" onClick={cerrar}>Mis productos</Link> : null}
                   <button type="button" onClick={cerrarSesion}>Cerrar sesión</button>
                 </div>

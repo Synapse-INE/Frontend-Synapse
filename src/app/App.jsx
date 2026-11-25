@@ -19,7 +19,7 @@ export function App() {
           <Route element={<Layout />}>
             <Route index element={<InicioPage />} />
             <Route path="lista" element={<ListaPreciosPage />} />
-            <Route path="solicitud" element={<RutaProtegida roles={["trabajador"]}><SolicitudPage /></RutaProtegida>} />
+            <Route path="solicitud" element={<RutaProtegida roles={["solicitante"]}><SolicitudPage /></RutaProtegida>} />
             <Route path="proveedor" element={<RutaProtegida roles={["proveedor"]}><ProveedorPage /></RutaProtegida>} />
             <Route path="ingresar" element={<RutaInvitado><IngresoPage /></RutaInvitado>} />
             <Route path="registro" element={<RutaInvitado><RegistroPage /></RutaInvitado>} />

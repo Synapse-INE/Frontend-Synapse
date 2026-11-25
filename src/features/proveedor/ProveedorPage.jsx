@@ -1,58 +1,57 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Contenedor } from "../../components/ui/Contenedor";
 import { Etiqueta } from "../../components/ui/Etiqueta";
-import { CATEGORIAS, CATEGORIA_POR_ID } from "../../data/categorias";
 import { formatearFecha, formatearQuetzales } from "../../data/precios";
 import {
+  ATRIBUTOS,
   PRODUCTOS_INICIALES,
   PROVEEDOR,
+  PROVEEDOR_ID,
   atributosVacios,
   estadoDe,
   etiquetaEstado,
-  plantillaDe,
-  precioSinIva,
+  precioActual,
+  sumarMeses,
 } from "../../data/ofertasProveedor";
+import { useSesion } from "../../sesion/Sesion";
 import { runTourProveedor, useTourProveedor } from "./tourProveedor";
 
 const PRESENTACIONES = ["Unidad", "Resma", "Ciento", "Caja"];
-const CATEGORIA_INICIAL = "papeleria-y-articulos-de-libreria";
 const VACIO = {
-  producto: "",
+  nombre: "",
   descripcion: "",
   presentacion: "Unidad",
-  precioConIva: "",
-  categoriaId: CATEGORIA_INICIAL,
-  condiciones: "",
-  atributos: atributosVacios(CATEGORIA_INICIAL),
+  monto: "",
+  categoriaOriginal: "Papelería y artículos de librería",
+  atributos: atributosVacios(),
 };
 
 const CORTES = [
   { id: "todas", titulo: "Productos" },
   { id: "vigente", titulo: "Vigentes" },
   { id: "por_confirmar", titulo: "Por confirmar" },
-  { id: "no_reconfirmado", titulo: "No reconfirmados" },
   { id: "accion", titulo: "Requieren acción" },
 ];
 
 const CICLO = [
-  { n: "01", titulo: "Vigente", texto: "Precio actualizado en los últimos 6 meses." },
-  { n: "02", titulo: "Por confirmar", texto: "Pasaron 6 meses. Hay 48 horas para responder." },
-  { n: "03", titulo: "Confirmas", texto: "Si confirmas o cambias el precio, vuelve a vigente." },
-  { n: "04", titulo: "Sin respuesta", texto: "Sigue visible, marcado como no reconfirmado." },
+  { n: "01", titulo: "Vigente", texto: "La vigencia del precio aún no se cumple." },
+  { n: "02", titulo: "Por confirmar", texto: "La vigencia ya venció. Hay que confirmar o cambiar el monto." },
+  { n: "03", titulo: "Confirmar", texto: "Una confirmación abre otra vigencia de 6 meses, con el mismo monto." },
 ];
 
 const SIGNIFICADO = {
-  vigente: "Este precio está al día. El INE puede usarlo como fuente al armar un precio de referencia.",
-  por_confirmar: "Pasaron 6 meses desde la última actualización. Confírmalo o cámbialo para que siga vigente.",
-  no_reconfirmado: "No hubo respuesta en el plazo. El precio sigue en el catálogo, pero el informe del INE lo cuenta aparte.",
+  vigente: "Este precio está dentro de su vigencia. El INE puede usarlo como fuente al armar un precio de referencia.",
+  por_confirmar: "La vigencia ya venció. Confírmalo o cámbialo para abrir otros 6 meses.",
 };
 
 export function ProveedorPage() {
-  const [productos, setProductos] = useState(PRODUCTOS_INICIALES);
+  const { sesion } = useSesion();
+  const propio = sesion?.proveedorId === PROVEEDOR_ID;
+  const [productos, setProductos] = useState(() => (propio ? PRODUCTOS_INICIALES : []));
   const [corte, setCorte] = useState("todas");
   const [busqueda, setBusqueda] = useState("");
   const [presentacion, setPresentacion] = useState("");
-  const [orden, setOrden] = useState({ campo: "producto", direccion: "asc" });
+  const [orden, setOrden] = useState({ campo: "nombre", direccion: "asc" });
   const [detalle, setDetalle] = useState(null);
   const [alta, setAlta] = useState(false);
   const [edicion, setEdicion] = useState(null);
@@ -62,7 +61,7 @@ export function ProveedorPage() {
   useTourProveedor();
 
   const resumen = useMemo(() => {
-    const conteo = { todas: productos.length, vigente: 0, por_confirmar: 0, no_reconfirmado: 0, accion: 0 };
+    const conteo = { todas: productos.length, vigente: 0, por_confirmar: 0, accion: 0 };
     for (const item of productos) {
       const estado = estadoDe(item);
       conteo[estado] += 1;
@@ -77,11 +76,10 @@ export function ProveedorPage() {
       const estado = estadoDe(item);
       if (corte === "vigente" && estado !== "vigente") return false;
       if (corte === "por_confirmar" && estado !== "por_confirmar") return false;
-      if (corte === "no_reconfirmado" && estado !== "no_reconfirmado") return false;
       if (corte === "accion" && estado === "vigente") return false;
       if (presentacion && item.presentacion !== presentacion) return false;
       if (!texto) return true;
-      return `${item.codigo} ${item.producto} ${item.descripcion}`.toLowerCase().includes(texto);
+      return `${item.codigoProveedor} ${item.nombre} ${item.descripcion} ${item.categoriaOriginal}`.toLowerCase().includes(texto);
     });
     const factor = orden.direccion === "asc" ? 1 : -1;
     lista.sort((a, b) => {
@@ -106,14 +104,6 @@ export function ProveedorPage() {
     if (name.startsWith("atributo.")) {
       const clave = name.slice("atributo.".length);
       setDatos((prev) => ({ ...prev, atributos: { ...prev.atributos, [clave]: value } }));
-      return;
-    }
-    if (name === "categoriaId") {
-      setDatos((prev) => ({
-        ...prev,
-        categoriaId: value,
-        atributos: atributosVacios(value, prev.atributos),
-      }));
       return;
     }
     setDatos((prev) => ({ ...prev, [name]: value }));
@@ -141,13 +131,12 @@ export function ProveedorPage() {
   function abrirEdicion(item) {
     setEdicion(item);
     setDatos({
-      producto: item.producto,
+      nombre: item.nombre,
       descripcion: item.descripcion,
       presentacion: item.presentacion,
-      precioConIva: String(item.precioConIva),
-      categoriaId: item.categoriaId,
-      condiciones: item.condiciones,
-      atributos: atributosVacios(item.categoriaId, item.atributos),
+      monto: String(precioActual(item)?.monto ?? ""),
+      categoriaOriginal: item.categoriaOriginal || "",
+      atributos: atributosVacios(item.atributos),
     });
     setDetalle(null);
     setAlta(true);
@@ -155,52 +144,50 @@ export function ProveedorPage() {
 
   function guardar(evento) {
     evento.preventDefault();
-    const precioConIva = Number(datos.precioConIva);
+    const monto = Number(datos.monto);
     const fallos = {};
-    if (!datos.producto.trim()) fallos.producto = "Escribe el nombre con el que identificas el producto.";
+    if (!datos.nombre.trim()) fallos.nombre = "Escribe el nombre con el que identificas el producto.";
     if (!datos.descripcion.trim()) fallos.descripcion = "Agrega una descripción para distinguirlo de otros parecidos.";
-    if (!Number.isFinite(precioConIva) || precioConIva <= 0) fallos.precioConIva = "Indica un precio con IVA mayor a cero.";
+    if (!datos.categoriaOriginal.trim()) fallos.categoriaOriginal = "Escribe la categoría tal como la ofreces.";
+    if (!Number.isFinite(monto) || monto <= 0) fallos.monto = "Indica un precio con IVA mayor a cero.";
     setErrores(fallos);
     if (Object.keys(fallos).length) return;
     const hoy = fechaHoy();
     const limpio = {
-      producto: datos.producto.trim(),
+      nombre: datos.nombre.trim(),
       descripcion: datos.descripcion.trim(),
       presentacion: datos.presentacion,
-      categoriaId: datos.categoriaId,
-      condiciones: datos.condiciones.trim(),
-      atributos: atributosVacios(datos.categoriaId, datos.atributos),
-      precioConIva,
+      categoriaOriginal: datos.categoriaOriginal.trim(),
+      atributos: atributosVacios(datos.atributos),
+    };
+    const filaPrecio = {
+      monto,
+      moneda: "GTQ",
+      fechaPrecio: hoy,
+      vigenciaHasta: sumarMeses(hoy),
+      registradoPorId: sesion?.id || null,
     };
     if (edicion) {
-      const cambio = edicion.precioConIva !== precioConIva;
+      const anterior = precioActual(edicion)?.monto;
+      const cambio = anterior !== monto;
       setProductos((prev) =>
         prev.map((item) =>
           item.id === edicion.id
-            ? {
-                ...item,
-                ...limpio,
-                fechaCarga: item.fechaCarga,
-                fechaActualizacion: cambio ? hoy : item.fechaActualizacion,
-                sinRespuesta: cambio ? false : item.sinRespuesta,
-                historial: cambio
-                  ? [...item.historial, { precioConIva, fecha: hoy, motivo: "Cambio de precio", autor: PROVEEDOR }]
-                  : item.historial,
-              }
+            ? { ...item, ...limpio, precios: cambio ? [...item.precios, filaPrecio] : item.precios }
             : item
         )
       );
     } else {
-      const n = productos.reduce((max, item) => Math.max(max, Number(item.codigo.replace(/\D/g, "")) || 0), 0) + 1;
+      const n = productos.reduce((max, item) => Math.max(max, Number(String(item.codigoProveedor).replace(/\D/g, "")) || 0), 0) + 1;
       const id = `pd-${Date.now()}`;
       setProductos((prev) => [
         {
           id,
-          codigo: `PD-${String(n).padStart(4, "0")}`,
-          fechaCarga: hoy,
-          fechaActualizacion: hoy,
-          sinRespuesta: false,
-          historial: [{ precioConIva, fecha: hoy, motivo: "Carga inicial", autor: PROVEEDOR }],
+          proveedorId: sesion?.proveedorId || PROVEEDOR_ID,
+          codigoProveedor: `PD-${String(n).padStart(4, "0")}`,
+          createdAt: hoy,
+          estado: "activo",
+          precios: [filaPrecio],
           ...limpio,
         },
         ...prev,
@@ -219,9 +206,16 @@ export function ProveedorPage() {
         fila.id === item.id
           ? {
               ...fila,
-              fechaActualizacion: hoy,
-              sinRespuesta: false,
-              historial: [...fila.historial, { precioConIva: fila.precioConIva, fecha: hoy, motivo: "Confirmación", autor: PROVEEDOR }],
+              precios: [
+                ...fila.precios,
+                {
+                  monto: precioActual(fila)?.monto,
+                  moneda: "GTQ",
+                  fechaPrecio: hoy,
+                  vigenciaHasta: sumarMeses(hoy),
+                  registradoPorId: sesion?.id || null,
+                },
+              ],
             }
           : fila
       )
@@ -234,7 +228,7 @@ export function ProveedorPage() {
     <section className="pagina bloque mesa-pagina revelar">
       <Contenedor>
         <header className="publicacion-encabezado">
-          <Etiqueta>{PROVEEDOR}</Etiqueta>
+          <Etiqueta>{propio ? PROVEEDOR : sesion?.nombre}</Etiqueta>
           <div className="publicacion-encabezado__titulo" id="prov-titulo">
             <h2>Mis productos</h2>
             <button type="button" className="mesa-tutorial" id="prov-tutorial" onClick={() => runTourProveedor()}>
@@ -253,7 +247,7 @@ export function ProveedorPage() {
         </header>
 
         <div className="mesa">
-          <div className="mesa-resumen" id="prov-resumen" role="tablist" aria-label="Estado del catálogo">
+            <div className="mesa-resumen mesa-resumen--4" id="prov-resumen" role="tablist" aria-label="Estado del catálogo">
             {CORTES.map((item) => {
               const cantidad = resumen[item.id];
               const base = resumen.todas || 1;
@@ -315,12 +309,12 @@ export function ProveedorPage() {
               <table className="tabla tabla--densa">
                 <thead>
                   <tr>
-                    <Th campo="codigo" orden={orden} onOrdenar={ordenar}>Código</Th>
-                    <Th campo="producto" orden={orden} onOrdenar={ordenar}>Producto</Th>
+                    <Th campo="codigoProveedor" orden={orden} onOrdenar={ordenar}>Código</Th>
+                    <Th campo="nombre" orden={orden} onOrdenar={ordenar}>Producto</Th>
                     <th>Descripción</th>
                     <Th campo="presentacion" orden={orden} onOrdenar={ordenar}>Presentación</Th>
-                    <Th campo="precioConIva" orden={orden} onOrdenar={ordenar}>Precio c/IVA</Th>
-                    <Th campo="fechaActualizacion" orden={orden} onOrdenar={ordenar}>Actualización</Th>
+                    <Th campo="monto" orden={orden} onOrdenar={ordenar}>Precio c/IVA</Th>
+                    <Th campo="fechaPrecio" orden={orden} onOrdenar={ordenar}>Fecha del precio</Th>
                     <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
@@ -330,12 +324,12 @@ export function ProveedorPage() {
                     const estado = estadoDe(item);
                     return (
                       <tr key={item.id} className={marcado === item.id ? "mesa-fila--lista" : ""}>
-                        <td className="mesa-codigo">{item.codigo}</td>
-                        <td id={indice === 0 ? "prov-ejemplo" : undefined}><strong className="tabla__producto">{item.producto}</strong></td>
+                        <td className="mesa-codigo">{item.codigoProveedor}</td>
+                        <td id={indice === 0 ? "prov-ejemplo" : undefined}><strong className="tabla__producto">{item.nombre}</strong></td>
                         <td className="mesa-caract" title={item.descripcion}>{item.descripcion}</td>
                         <td>{item.presentacion}</td>
-                        <td className="tabla__precio">{formatearQuetzales(item.precioConIva)}</td>
-                        <td>{formatearFecha(item.fechaActualizacion)}</td>
+                        <td className="tabla__precio">{formatearQuetzales(precioActual(item)?.monto)}</td>
+                        <td>{formatearFecha(precioActual(item)?.fechaPrecio)}</td>
                         <td id={indice === 0 ? "prov-estado" : undefined}><Estado id={estado} /></td>
                         <td>
                           <div className="mesa-acciones" id={indice === 0 ? "prov-acciones" : undefined}>
@@ -377,7 +371,7 @@ export function ProveedorPage() {
         {alta ? (
           <form className="dialogo-producto__panel formulario" onSubmit={guardar}>
             <header className="dialogo-producto__cab">
-              <p className="etiqueta">{edicion ? edicion.codigo : "Nuevo"}</p>
+              <p className="etiqueta">{edicion ? edicion.codigoProveedor : "Nuevo"}</p>
               <h3>{edicion ? "Editar producto" : "Agregar producto"}</h3>
             </header>
             <div className="dialogo-producto__cuerpo">
@@ -386,8 +380,8 @@ export function ProveedorPage() {
                 <div className="prov-campos">
                   <label className="dialogo-fila--ancho">
                     Nombre
-                    <input name="producto" value={datos.producto} onChange={cambiar} aria-invalid={Boolean(errores.producto)} />
-                    {errores.producto ? <span className="formulario__error" role="alert">{errores.producto}</span> : null}
+                    <input name="nombre" value={datos.nombre} onChange={cambiar} aria-invalid={Boolean(errores.nombre)} />
+                    {errores.nombre ? <span className="formulario__error" role="alert">{errores.nombre}</span> : null}
                   </label>
                   <label className="dialogo-fila--ancho">
                     Descripción
@@ -404,19 +398,16 @@ export function ProveedorPage() {
                   </label>
                   <label>
                     Categoría
-                    <select name="categoriaId" value={datos.categoriaId} onChange={cambiar}>
-                      {CATEGORIAS.map((item) => (
-                        <option key={item.id} value={item.id}>{item.nombre}</option>
-                      ))}
-                    </select>
+                    <input name="categoriaOriginal" value={datos.categoriaOriginal} onChange={cambiar} aria-invalid={Boolean(errores.categoriaOriginal)} placeholder="Como la ofreces, en texto libre" />
+                    {errores.categoriaOriginal ? <span className="formulario__error" role="alert">{errores.categoriaOriginal}</span> : null}
                   </label>
                 </div>
               </section>
               <section className="dialogo-bloque">
                 <h4>Atributos</h4>
-                <p className="dialogo-bloque__texto">Cambian según la categoría y describen el producto. No se suman al precio.</p>
+                <p className="dialogo-bloque__texto">Describen el producto y no se suman al precio. Se guardan tal como se escriben.</p>
                 <div className="prov-campos">
-                  {plantillaDe(datos.categoriaId).map((campo) => (
+                  {ATRIBUTOS.map((campo) => (
                     <label key={campo.clave}>
                       {campo.etiqueta}
                       <input
@@ -433,29 +424,20 @@ export function ProveedorPage() {
                 <div className="prov-campos">
                   <label>
                     Precio con IVA (Q)
-                    <input name="precioConIva" type="number" min="0" step="0.01" value={datos.precioConIva} onChange={cambiar} aria-invalid={Boolean(errores.precioConIva)} />
-                    {errores.precioConIva ? <span className="formulario__error" role="alert">{errores.precioConIva}</span> : null}
+                    <input name="monto" type="number" min="0" step="0.01" value={datos.monto} onChange={cambiar} aria-invalid={Boolean(errores.monto)} />
+                    {errores.monto ? <span className="formulario__error" role="alert">{errores.monto}</span> : null}
                   </label>
                   <div className="prov-solo">
-                    <span>Precio sin IVA</span>
-                    <strong>
-                      {precioVista(datos.precioConIva)
-                        ? formatearQuetzales(precioSinIva(datos.precioConIva))
-                        : "Se calcula al escribir el precio"}
-                    </strong>
+                    <span>Moneda</span>
+                    <strong>GTQ</strong>
                   </div>
-                  <label className="dialogo-fila--ancho">
-                    Condiciones
-                    <input name="condiciones" value={datos.condiciones} onChange={cambiar} placeholder="Entrega o garantía, si aplica" />
-                    <span className="formulario__ayuda">No se suman al precio. Sirven para dejar claro cómo entregas el producto.</span>
-                  </label>
                   <div className="prov-solo">
                     <span>Fecha de carga</span>
-                    <strong>{edicion ? formatearFecha(edicion.fechaCarga) : "Se registra al guardar"}</strong>
+                    <strong>{edicion ? formatearFecha(edicion.createdAt) : "Se registra al guardar"}</strong>
                   </div>
                   <div className="prov-solo">
-                    <span>Última actualización</span>
-                    <strong>{edicion ? formatearFecha(edicion.fechaActualizacion) : "Se registra al guardar"}</strong>
+                    <span>Vigencia hasta</span>
+                    <strong>{edicion ? formatearFecha(precioActual(edicion)?.vigenciaHasta) : "Seis meses desde el precio"}</strong>
                   </div>
                 </div>
               </section>
@@ -473,16 +455,16 @@ export function ProveedorPage() {
 
 function Detalle({ item, onCerrar, onEditar, onConfirmar }) {
   const estado = estadoDe(item);
-  const categoria = CATEGORIA_POR_ID[item.categoriaId]?.nombre ?? "Sin categoría";
-  const historial = [...item.historial].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const actual = precioActual(item);
+  const historial = [...(item.precios || [])].sort((a, b) => String(b.fechaPrecio).localeCompare(String(a.fechaPrecio)));
   return (
     <div className="dialogo-producto__panel">
       <header className="dialogo-producto__cab">
-        <p className="etiqueta">{item.codigo}</p>
-        <h3>{item.producto}</h3>
+        <p className="etiqueta">{item.codigoProveedor}</p>
+        <h3>{item.nombre}</h3>
         <div className="dialogo-producto__meta">
-          <p className="dialogo-producto__precio">{formatearQuetzales(item.precioConIva)}</p>
-          <span className="mesa-ref">con IVA · sin IVA {formatearQuetzales(precioSinIva(item.precioConIva))}</span>
+          <p className="dialogo-producto__precio">{formatearQuetzales(actual?.monto)}</p>
+          <span className="mesa-ref">{actual?.moneda || "GTQ"} · con IVA</span>
           <Estado id={estado} />
         </div>
       </header>
@@ -492,15 +474,12 @@ function Detalle({ item, onCerrar, onEditar, onConfirmar }) {
           <p className="dialogo-bloque__texto">{SIGNIFICADO[estado]}</p>
           <dl className="dialogo-filas">
             <Fila etiqueta="Presentación" valor={item.presentacion} />
-            <Fila etiqueta="Categoría" valor={categoria} />
-            <Fila etiqueta="Precio con IVA" valor={formatearQuetzales(item.precioConIva)} />
-            <Fila etiqueta="Precio sin IVA" valor={formatearQuetzales(precioSinIva(item.precioConIva))} />
-            <Fila etiqueta="Fecha de carga" valor={formatearFecha(item.fechaCarga)} />
-            <Fila etiqueta="Última actualización" valor={formatearFecha(item.fechaActualizacion)} />
-            <div className="dialogo-fila dialogo-fila--ancho">
-              <dt>Condiciones</dt>
-              <dd>{item.condiciones || "Sin condiciones adicionales"}</dd>
-            </div>
+            <Fila etiqueta="Categoría" valor={item.categoriaOriginal || "Sin categoría"} />
+            <Fila etiqueta="Precio con IVA" valor={formatearQuetzales(actual?.monto)} />
+            <Fila etiqueta="Moneda" valor={actual?.moneda || "GTQ"} />
+            <Fila etiqueta="Fecha de carga" valor={formatearFecha(item.createdAt)} />
+            <Fila etiqueta="Fecha del precio" valor={formatearFecha(actual?.fechaPrecio)} />
+            <Fila etiqueta="Vigencia hasta" valor={formatearFecha(actual?.vigenciaHasta)} />
             <div className="dialogo-fila dialogo-fila--ancho">
               <dt>Descripción</dt>
               <dd>{item.descripcion}</dd>
@@ -510,7 +489,7 @@ function Detalle({ item, onCerrar, onEditar, onConfirmar }) {
         <section className="dialogo-bloque">
           <h4>Atributos</h4>
           <dl className="dialogo-filas">
-            {plantillaDe(item.categoriaId).map((campo) => (
+            {ATRIBUTOS.map((campo) => (
               <Fila key={campo.clave} etiqueta={campo.etiqueta} valor={item.atributos?.[campo.clave] || "—"} />
             ))}
           </dl>
@@ -521,15 +500,15 @@ function Detalle({ item, onCerrar, onEditar, onConfirmar }) {
             <li className="prov-historial__cab">
               <span>Fecha</span>
               <span>Precio</span>
-              <span>Motivo</span>
-              <span>Quién</span>
+              <span>Moneda</span>
+              <span>Vigencia</span>
             </li>
             {historial.map((fila) => (
-              <li key={`${fila.fecha}-${fila.motivo}-${fila.precioConIva}`}>
-                <strong>{formatearFecha(fila.fecha)}</strong>
-                <span>{formatearQuetzales(fila.precioConIva)}</span>
-                <span>{fila.motivo}</span>
-                <span>{fila.autor || PROVEEDOR}</span>
+              <li key={`${fila.fechaPrecio}-${fila.monto}`}>
+                <strong>{formatearFecha(fila.fechaPrecio)}</strong>
+                <span>{formatearQuetzales(fila.monto)}</span>
+                <span>{fila.moneda}</span>
+                <span>{formatearFecha(fila.vigenciaHasta)}</span>
               </li>
             ))}
           </ul>
@@ -546,14 +525,9 @@ function Detalle({ item, onCerrar, onEditar, onConfirmar }) {
   );
 }
 
-function precioVista(valor) {
-  const numero = Number(valor);
-  return Number.isFinite(numero) && numero > 0;
-}
-
 function valorOrden(item, campo) {
-  if (campo === "precioConIva") return item.precioConIva;
-  if (campo === "fechaActualizacion") return item.fechaActualizacion;
+  if (campo === "monto") return precioActual(item)?.monto ?? 0;
+  if (campo === "fechaPrecio") return precioActual(item)?.fechaPrecio || "";
   return item[campo];
 }
 

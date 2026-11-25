@@ -7,7 +7,7 @@ import { AccesoMarco } from "./AccesoMarco";
 export function RegistroPage() {
   const { sesion, entrar } = useSesion();
   const navigate = useNavigate();
-  const [datos, setDatos] = useState({ nombre: "", correo: "", clave: "", confirmar: "" });
+  const [datos, setDatos] = useState({ nombre: "", correo: "", institucion: "", cargo: "", clave: "", confirmar: "" });
   const [visible, setVisible] = useState(false);
   const [errores, setErrores] = useState({});
 
@@ -24,7 +24,8 @@ export function RegistroPage() {
   function guardar(evento) {
     evento.preventDefault();
     const fallos = {};
-    if (datos.nombre.trim().length < 3) fallos.nombre = "Escribe el nombre de la persona o de la entidad.";
+    if (datos.nombre.trim().length < 3) fallos.nombre = "Escribe el nombre de la persona.";
+    if (datos.institucion.trim().length < 3) fallos.institucion = "Escribe el nombre oficial de la institución.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.correo.trim())) fallos.correo = "Escribe un correo válido.";
     if (cuentasDisponibles().some((item) => item.correo.toLowerCase() === datos.correo.trim().toLowerCase())) {
       fallos.correo = "Ese correo ya tiene una cuenta. Se ingresa con él.";
@@ -34,30 +35,46 @@ export function RegistroPage() {
     setErrores(fallos);
     if (Object.keys(fallos).length) return;
     const cuenta = {
+      id: `u-${Date.now()}`,
       nombre: datos.nombre.trim(),
       correo: datos.correo.trim(),
-      rol: "externo",
+      roles: ["solicitante"],
       clave: datos.clave,
+      estado: "activo",
+      perfil: {
+        institucion: datos.institucion.trim(),
+        cargo: datos.cargo.trim(),
+        estadoRevision: "pendiente",
+      },
     };
     guardarCuenta(cuenta);
     entrar(cuenta);
-    navigate(ROLES[cuenta.rol].destino);
+    navigate(ROLES.solicitante.destino);
   }
 
   return (
     <AccesoMarco
-      titulo="El registro es para quien usa el portal desde fuera."
-      texto="Se dejan el nombre, el correo y la contraseña. La cuenta queda registrada y el acceso se habilita desde la gestión del portal."
+      titulo="El registro es para quien pide un precio de referencia."
+      texto="Se dejan la persona, la institución y el cargo. La cuenta queda en revisión y las solicitudes se habilitan cuando el INE la aprueba."
     >
       <p className="etiqueta">Acceso</p>
       <h2>Registrarse</h2>
-      <p className="acceso__lead">Se completan los datos de la persona o de la entidad.</p>
+      <p className="acceso__lead">Se completan los datos de la persona y de su institución.</p>
 
       <form className="acceso__forma" onSubmit={guardar}>
         <label>
           Nombre
-          <input name="nombre" value={datos.nombre} onChange={cambiar} aria-invalid={Boolean(errores.nombre)} placeholder="Nombre de la persona o entidad" />
+          <input name="nombre" value={datos.nombre} onChange={cambiar} aria-invalid={Boolean(errores.nombre)} placeholder="Nombre de la persona" />
           {errores.nombre ? <span className="formulario__error" role="alert">{errores.nombre}</span> : null}
+        </label>
+        <label>
+          Institución
+          <input name="institucion" value={datos.institucion} onChange={cambiar} aria-invalid={Boolean(errores.institucion)} placeholder="Nombre oficial de la institución" />
+          {errores.institucion ? <span className="formulario__error" role="alert">{errores.institucion}</span> : null}
+        </label>
+        <label>
+          Cargo
+          <input name="cargo" value={datos.cargo} onChange={cambiar} placeholder="Cargo en la institución, si aplica" />
         </label>
         <label>
           Correo

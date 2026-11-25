@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CATEGORIAS } from "../../data/categorias";
-import { anotar, categoriasApagadas, fijarCategoria, leerBitacora } from "../../sesion/bitacora";
+import { TIPOS_MODALIDAD } from "../../data/modalidades";
+import { anotar, detalleDe, fijarModalidad, leerBitacora, modalidadesApagadas } from "../../sesion/bitacora";
 import {
   CUENTAS,
   ROLES,
   actualizarCuenta,
-  correosBloqueados,
   cuentasDisponibles,
   estaBloqueada,
   fijarBloqueo,
@@ -15,7 +14,8 @@ import {
 } from "../../sesion/roles";
 import { useSesion } from "../../sesion/Sesion";
 
-const ROLES_ALTA = ["jefe", "trabajador", "proveedor"];
+const ROLES_ALTA = ["trabajador", "proveedor"];
+const ROLES_FILTRO = ["admin", "trabajador", "proveedor", "solicitante"];
 const POR_PAGINA = 8;
 const NAV = [
   { grupo: "Gestión", items: [{ id: "resumen", titulo: "Resumen", icono: "M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" }] },
@@ -23,10 +23,10 @@ const NAV = [
     grupo: "Personas",
     items: [
       { id: "usuarios", titulo: "Usuarios", icono: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
-      { id: "pendientes", titulo: "Por habilitar", icono: "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" },
+      { id: "pendientes", titulo: "En revisión", icono: "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" },
     ],
   },
-  { grupo: "Catálogo", items: [{ id: "categorias", titulo: "Categorías", icono: "M4 7h16M4 12h16M4 17h10" }] },
+  { grupo: "Catálogo", items: [{ id: "modalidades", titulo: "Modalidades", icono: "M4 7h16M4 12h16M4 17h10" }] },
   { grupo: "Control", items: [{ id: "bitacora", titulo: "Bitácora", icono: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }] },
 ];
 
@@ -59,28 +59,28 @@ export function AdminPage() {
   const refrescar = () => setVersion((valor) => valor + 1);
 
   const cuentas = useMemo(() => cuentasDisponibles(), [version]);
-  const bloqueos = useMemo(() => correosBloqueados(), [version]);
-  const apagadas = useMemo(() => categoriasApagadas(), [version]);
+  const apagadas = useMemo(() => modalidadesApagadas(), [version]);
   const bitacora = useMemo(() => leerBitacora(), [version]);
   const texto = busqueda.trim().toLowerCase();
   const titulo = NAV.flatMap((grupo) => grupo.items).find((item) => item.id === corte)?.titulo || "Resumen";
+  const enRevision = (item) => item.rol === "solicitante" && item.perfil?.estadoRevision === "pendiente";
 
   const resumen = {
-    activos: cuentas.filter((item) => item.rol !== "externo" && !estaBloqueada(item.correo)).length,
-    pendientes: cuentas.filter((item) => item.rol === "externo").length,
-    categorias: CATEGORIAS.length - apagadas.size,
+    activos: cuentas.filter((item) => item.estado !== "suspendido" && !estaBloqueada(item.correo)).length,
+    pendientes: cuentas.filter(enRevision).length,
+    modalidades: TIPOS_MODALIDAD.length - apagadas.size,
     bitacora: bitacora.length,
   };
   const CIRC = 452.39;
   const TINTES = {
     admin: { clase: "dona-admin", sw: "sw-profundo" },
-    jefe: { clase: "dona-b", sw: "sw-naranja" },
+    solicitante: { clase: "dona-b", sw: "sw-naranja" },
     trabajador: { clase: "dona-a", sw: "sw-azul" },
     proveedor: { clase: "dona-c", sw: "sw-lima" },
   };
-  const distribucion = ["admin", ...ROLES_ALTA].map((id) => ({
+  const distribucion = ["admin", "trabajador", "proveedor", "solicitante"].map((id) => ({
     id,
-    n: cuentas.filter((item) => item.rol === id && !estaBloqueada(item.correo)).length,
+    n: cuentas.filter((item) => item.roles.includes(id) && item.estado !== "suspendido" && !estaBloqueada(item.correo)).length,
     ...TINTES[id],
   }));
   const sumaAccesos = distribucion.reduce((total, item) => total + item.n, 0);
@@ -120,13 +120,26 @@ export function AdminPage() {
     setErrores(fallos);
     if (Object.keys(fallos).length) return;
     const cuenta = {
+      id: `u-${Date.now()}`,
       nombre: datos.nombre.trim(),
       correo: datos.correo.trim(),
+      roles: [datos.rol],
       rol: datos.rol,
       clave: datos.clave,
+      estado: "activo",
+      proveedorId: datos.rol === "proveedor" ? `prov-${Date.now()}` : null,
+      perfil: datos.rol === "solicitante"
+        ? { institucion: datos.nombre.trim(), cargo: "", estadoRevision: "aprobado" }
+        : null,
     };
     guardarCuenta(cuenta);
-    anotar(sesion.nombre, "Alta de usuario", `${cuenta.nombre} · ${ROLES[cuenta.rol].etiqueta}`);
+    anotar({
+      actor: sesion.nombre,
+      accion: "Alta de usuario",
+      recurso: "usuarios",
+      recursoId: cuenta.id,
+      metadatos: { nombre: cuenta.nombre, rol: ROLES[cuenta.rol].etiqueta },
+    });
     setDatos({ nombre: "", correo: "", clave: "", rol: "trabajador" });
     dialogo.current?.close();
     setCorte("usuarios");
@@ -137,20 +150,39 @@ export function AdminPage() {
     if (cuenta.correo === sesion.correo) return;
     const bloqueada = !estaBloqueada(cuenta.correo);
     fijarBloqueo(cuenta.correo, bloqueada);
-    anotar(sesion.nombre, bloqueada ? "Acceso suspendido" : "Acceso restaurado", cuenta.correo);
+    anotar({
+      actor: sesion.nombre,
+      accion: bloqueada ? "Acceso suspendido" : "Acceso restaurado",
+      recurso: "usuarios",
+      recursoId: cuenta.id,
+      metadatos: { correo: cuenta.correo },
+    });
     refrescar();
   }
 
-  function habilitar(cuenta, rol) {
-    if (!actualizarCuenta(cuenta.correo, { rol })) return;
-    anotar(sesion.nombre, "Cuenta habilitada", `${cuenta.correo} · ${ROLES[rol].etiqueta}`);
+  function aprobar(cuenta) {
+    const perfil = { ...cuenta.perfil, estadoRevision: "aprobado" };
+    if (!actualizarCuenta(cuenta.correo, { perfil })) return;
+    anotar({
+      actor: sesion.nombre,
+      accion: "Solicitante aprobado",
+      recurso: "perfiles_solicitantes",
+      recursoId: cuenta.id,
+      metadatos: { correo: cuenta.correo, institucion: perfil.institucion },
+    });
     refrescar();
   }
 
-  function alternarCategoria(categoria) {
-    const activa = apagadas.has(categoria.id);
-    fijarCategoria(categoria.id, activa);
-    anotar(sesion.nombre, activa ? "Categoría activa" : "Categoría apartada", categoria.nombre);
+  function alternarModalidad(modalidad) {
+    const activa = apagadas.has(modalidad.id);
+    fijarModalidad(modalidad.id, activa);
+    anotar({
+      actor: sesion.nombre,
+      accion: activa ? "Modalidad activa" : "Modalidad inactiva",
+      recurso: "tipos_modalidad",
+      recursoId: modalidad.id,
+      metadatos: { nombre: modalidad.nombre },
+    });
     refrescar();
   }
 
@@ -162,20 +194,19 @@ export function AdminPage() {
   }
 
   const listaUsuarios = cuentas.filter((item) => {
-    if (item.rol === "externo") return false;
-    if (estadoFiltro === "activos" && estaBloqueada(item.correo)) return false;
-    if (estadoFiltro === "suspendidos" && !estaBloqueada(item.correo)) return false;
-    if (rolFiltro !== "todos" && item.rol !== rolFiltro) return false;
+    if (estadoFiltro === "activos" && (item.estado === "suspendido" || estaBloqueada(item.correo))) return false;
+    if (estadoFiltro === "suspendidos" && item.estado !== "suspendido" && !estaBloqueada(item.correo)) return false;
+    if (rolFiltro !== "todos" && !item.roles.includes(rolFiltro)) return false;
     return !texto || `${item.nombre} ${item.correo}`.toLowerCase().includes(texto);
   });
-  const listaPendientes = cuentas.filter((item) => item.rol === "externo" && (!texto || `${item.nombre} ${item.correo}`.toLowerCase().includes(texto)));
-  const listaCategorias = CATEGORIAS.filter((item) => {
-    if (estadoFiltro === "apartadas" && !apagadas.has(item.id)) return false;
-    if (estadoFiltro === "disponibles" && apagadas.has(item.id)) return false;
+  const listaPendientes = cuentas.filter((item) => enRevision(item) && (!texto || `${item.nombre} ${item.correo} ${item.perfil?.institucion || ""}`.toLowerCase().includes(texto)));
+  const listaModalidades = TIPOS_MODALIDAD.filter((item) => {
+    if (estadoFiltro === "inactivas" && !apagadas.has(item.id)) return false;
+    if (estadoFiltro === "activas" && apagadas.has(item.id)) return false;
     return !texto || item.nombre.toLowerCase().includes(texto);
   });
-  const listaBitacora = bitacora.filter((item) => !texto || `${item.accion} ${item.detalle} ${item.autor}`.toLowerCase().includes(texto));
-  const fuente = corte === "usuarios" ? listaUsuarios : corte === "pendientes" ? listaPendientes : corte === "categorias" ? listaCategorias : listaBitacora;
+  const listaBitacora = bitacora.filter((item) => !texto || `${item.accion} ${item.actor} ${item.recurso} ${detalleDe(item)}`.toLowerCase().includes(texto));
+  const fuente = corte === "usuarios" ? listaUsuarios : corte === "pendientes" ? listaPendientes : corte === "modalidades" ? listaModalidades : listaBitacora;
   const paginas = Math.max(1, Math.ceil(fuente.length / POR_PAGINA));
   const paginaSegura = Math.min(pagina, paginas);
   const filas = fuente.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
@@ -201,7 +232,7 @@ export function AdminPage() {
                 <button key={item.id} type="button" className={corte === item.id ? "es-activa" : ""} aria-current={corte === item.id ? "page" : undefined} onClick={() => ir(item.id)}>
                   <Icono d={item.icono} />
                   <span>{item.titulo}</span>
-                  {item.id !== "resumen" ? <b>{item.id === "usuarios" ? resumen.activos : item.id === "categorias" ? resumen.categorias : resumen[item.id]}</b> : null}
+                  {item.id !== "resumen" ? <b>{item.id === "usuarios" ? resumen.activos : item.id === "modalidades" ? resumen.modalidades : resumen[item.id]}</b> : null}
                 </button>
               ))}
             </nav>
@@ -244,12 +275,12 @@ export function AdminPage() {
                   <div className="consola__pista" aria-hidden="true"><i style={{ "--p": resumen.activos ? "100%" : "0%" }} /></div>
                 </article>
                 <article className="consola__kpi consola__kpi--naranja">
-                  <span>Por habilitar</span><strong>{resumen.pendientes}</strong><small>Registros sin acceso asignado</small>
+                  <span>En revisión</span><strong>{resumen.pendientes}</strong><small>Solicitantes pendientes de aprobar</small>
                   <div className="consola__pista" aria-hidden="true"><i style={{ "--p": resumen.pendientes ? "100%" : "0%" }} /></div>
                 </article>
                 <article className="consola__kpi consola__kpi--lima">
-                  <span>Categorías</span><strong>{resumen.categorias}</strong><small>Disponibles de {CATEGORIAS.length}</small>
-                  <div className="consola__pista" aria-hidden="true"><i style={{ "--p": `${Math.round((resumen.categorias / CATEGORIAS.length) * 100)}%` }} /></div>
+                  <span>Modalidades</span><strong>{resumen.modalidades}</strong><small>Activas de {TIPOS_MODALIDAD.length}</small>
+                  <div className="consola__pista" aria-hidden="true"><i style={{ "--p": `${Math.round((resumen.modalidades / TIPOS_MODALIDAD.length) * 100)}%` }} /></div>
                 </article>
                 <article className="consola__kpi consola__kpi--profundo">
                   <span>Bitácora</span><strong>{resumen.bitacora}</strong><small>Movimientos registrados</small>
@@ -294,9 +325,9 @@ export function AdminPage() {
                   <section className="consola__espera">
                     <strong>{resumen.pendientes}</strong>
                     <div>
-                      <span>Por habilitar</span>
-                      <p>{resumen.pendientes ? "Estas cuentas esperan un acceso." : "Nadie está en espera. Un registro nuevo aparece aquí."}</p>
-                      {resumen.pendientes ? <button type="button" className="btn btn--naranja" onClick={() => ir("pendientes")}>Asignar acceso</button> : null}
+                      <span>En revisión</span>
+                      <p>{resumen.pendientes ? "Estos solicitantes esperan aprobación." : "Nadie está en revisión. Un registro nuevo aparece aquí."}</p>
+                      {resumen.pendientes ? <button type="button" className="btn btn--naranja" onClick={() => ir("pendientes")}>Revisar perfiles</button> : null}
                     </div>
                   </section>
               </div>
@@ -308,7 +339,7 @@ export function AdminPage() {
                   </div>
                   <button type="button" className="btn btn--linea" onClick={() => ir("usuarios")}>Ver todas</button>
                 </header>
-                <TablaUsuarios filas={cuentas.filter((item) => item.rol !== "externo").slice(0, 5)} sesion={sesion} bloqueos={bloqueos} onAcceso={alternarAcceso} />
+                <TablaUsuarios filas={cuentas.slice(0, 5)} sesion={sesion} onAcceso={alternarAcceso} />
               </section>
               <section className="consola__tarjeta">
                 <header>
@@ -328,8 +359,8 @@ export function AdminPage() {
                   <h1>{titulo}</h1>
                   <p>
                     {corte === "usuarios" && "Altas, suspensiones y restauraciones de las cuentas internas."}
-                    {corte === "pendientes" && "Registros que aún no tienen jefe, trabajador o proveedor."}
-                    {corte === "categorias" && "El catálogo oficial. Apartar una categoría la deja fuera de uso."}
+                    {corte === "pendientes" && "Solicitantes cuya institución aún no está aprobada."}
+                    {corte === "modalidades" && "Tipos de compra del portal. Inactivar una modalidad la deja fuera de las solicitudes nuevas."}
                     {corte === "bitacora" && "Cada cambio queda aquí. Esta lista no se edita ni se borra."}
                   </p>
                 </div>
@@ -342,7 +373,7 @@ export function AdminPage() {
                   type="search"
                   value={busqueda}
                   onChange={(evento) => setBusqueda(evento.target.value)}
-                  placeholder={corte === "categorias" ? "Buscar categoría" : corte === "bitacora" ? "Buscar acción o detalle" : "Buscar nombre o correo"}
+                  placeholder={corte === "modalidades" ? "Buscar modalidad" : corte === "bitacora" ? "Buscar acción, actor o recurso" : "Buscar nombre o correo"}
                   aria-label="Buscar"
                 />
                 {corte === "usuarios" ? (
@@ -354,21 +385,21 @@ export function AdminPage() {
                     </select>
                     <select value={rolFiltro} onChange={(evento) => setRolFiltro(evento.target.value)} aria-label="Acceso">
                       <option value="todos">Todos los accesos</option>
-                      {["admin", ...ROLES_ALTA].map((id) => <option key={id} value={id}>{ROLES[id].etiqueta}</option>)}
+                      {ROLES_FILTRO.map((id) => <option key={id} value={id}>{ROLES[id].etiqueta}</option>)}
                     </select>
                   </>
                 ) : null}
-                {corte === "categorias" ? (
+                {corte === "modalidades" ? (
                   <select value={estadoFiltro} onChange={(evento) => setEstadoFiltro(evento.target.value)} aria-label="Uso">
                     <option value="todos">Todas</option>
-                    <option value="disponibles">Disponibles</option>
-                    <option value="apartadas">Apartadas</option>
+                    <option value="activas">Activas</option>
+                    <option value="inactivas">Inactivas</option>
                   </select>
                 ) : null}
               </div>
-              {corte === "usuarios" ? <TablaUsuarios filas={filas} sesion={sesion} bloqueos={bloqueos} onAcceso={alternarAcceso} /> : null}
-              {corte === "pendientes" ? <TablaPendientes filas={filas} onHabilitar={habilitar} /> : null}
-              {corte === "categorias" ? <TablaCategorias filas={filas} apagadas={apagadas} onCambiar={alternarCategoria} /> : null}
+              {corte === "usuarios" ? <TablaUsuarios filas={filas} sesion={sesion} onAcceso={alternarAcceso} /> : null}
+              {corte === "pendientes" ? <TablaPendientes filas={filas} onAprobar={aprobar} /> : null}
+              {corte === "modalidades" ? <TablaModalidades filas={filas} apagadas={apagadas} onCambiar={alternarModalidad} /> : null}
               {corte === "bitacora" ? <TablaBitacora filas={filas} /> : null}
               <footer className="consola__pager">
                 <span>{fuente.length} registro{fuente.length === 1 ? "" : "s"}</span>
@@ -385,7 +416,11 @@ export function AdminPage() {
       <dialog className="consola__dialog" ref={dialogo} onClose={() => setErrores({})}>
         <form onSubmit={crear}>
           <h2>Nuevo usuario</h2>
-          <p style={{ margin: 0, color: "var(--muted)" }}>La cuenta entra activa con la contraseña temporal que se escribe aquí.</p>
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            {datos.rol === "proveedor"
+              ? "Se crea la persona y el proveedor ligado a esta cuenta, con la contraseña temporal."
+              : "La cuenta de trabajador entra activa con la contraseña temporal que se escribe aquí."}
+          </p>
           <label>Nombre<input name="nombre" value={datos.nombre} onChange={cambiar} aria-invalid={Boolean(errores.nombre)} />{errores.nombre ? <span className="formulario__error">{errores.nombre}</span> : null}</label>
           <label>Correo<input name="correo" type="email" value={datos.correo} onChange={cambiar} aria-invalid={Boolean(errores.correo)} />{errores.correo ? <span className="formulario__error">{errores.correo}</span> : null}</label>
           <label>Contraseña temporal<input name="clave" type="text" autoComplete="off" value={datos.clave} onChange={cambiar} aria-invalid={Boolean(errores.clave)} />{errores.clave ? <span className="formulario__error">{errores.clave}</span> : null}</label>
@@ -404,7 +439,7 @@ export function AdminPage() {
   );
 }
 
-function TablaUsuarios({ filas, sesion, bloqueos, onAcceso }) {
+function TablaUsuarios({ filas, sesion, onAcceso }) {
   if (!filas.length) return <p className="consola__vacio">No hay cuentas con esos filtros.</p>;
   return (
     <div className="tabla-wrap">
@@ -416,12 +451,12 @@ function TablaUsuarios({ filas, sesion, bloqueos, onAcceso }) {
           {filas.map((cuenta) => {
             const propia = cuenta.correo === sesion.correo;
             const base = CUENTAS.some((item) => item.correo === cuenta.correo);
-            const bloqueada = bloqueos.includes(cuenta.correo.toLowerCase());
+            const bloqueada = cuenta.estado === "suspendido" || estaBloqueada(cuenta.correo);
             return (
               <tr key={cuenta.correo}>
                 <td className="tabla__producto">{cuenta.nombre}</td>
                 <td>{cuenta.correo}</td>
-                <td><span className={`chip chip--${cuenta.rol}`}>{ROLES[cuenta.rol]?.etiqueta}</span></td>
+                <td>{cuenta.roles.map((id) => <span key={id} className={`chip chip--${id}`}>{ROLES[id]?.etiqueta}</span>)}</td>
                 <td><span className={`chip ${bloqueada ? "chip--aviso" : "chip--ok"}`}>{bloqueada ? "Suspendida" : "Activa"}</span></td>
                 <td className="tabla__accion">
                   <button type="button" className="btn btn--linea" disabled={propia || (base && cuenta.rol === "admin")} onClick={() => onAcceso(cuenta)}>
@@ -437,18 +472,22 @@ function TablaUsuarios({ filas, sesion, bloqueos, onAcceso }) {
   );
 }
 
-function TablaPendientes({ filas, onHabilitar }) {
-  if (!filas.length) return <p className="consola__vacio">No hay cuentas esperando un acceso.</p>;
+function TablaPendientes({ filas, onAprobar }) {
+  if (!filas.length) return <p className="consola__vacio">No hay solicitantes en revisión.</p>;
   return (
     <div className="tabla-wrap">
       <table className="tabla tabla--densa">
-        <thead><tr><th>Nombre</th><th>Correo</th><th>Habilitar como</th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Correo</th><th>Institución</th><th>Cargo</th><th>Acción</th></tr></thead>
         <tbody>
           {filas.map((cuenta) => (
             <tr key={cuenta.correo}>
               <td className="tabla__producto">{cuenta.nombre}</td>
               <td>{cuenta.correo}</td>
-              <td><Habilitar onElegir={(rol) => onHabilitar(cuenta, rol)} /></td>
+              <td>{cuenta.perfil?.institucion || "—"}</td>
+              <td>{cuenta.perfil?.cargo || "—"}</td>
+              <td className="tabla__accion">
+                <button type="button" className="btn btn--naranja" onClick={() => onAprobar(cuenta)}>Aprobar</button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -457,21 +496,22 @@ function TablaPendientes({ filas, onHabilitar }) {
   );
 }
 
-function TablaCategorias({ filas, apagadas, onCambiar }) {
-  if (!filas.length) return <p className="consola__vacio">Ninguna categoría coincide con la búsqueda.</p>;
+function TablaModalidades({ filas, apagadas, onCambiar }) {
+  if (!filas.length) return <p className="consola__vacio">Ninguna modalidad coincide con la búsqueda.</p>;
   return (
     <div className="tabla-wrap">
       <table className="tabla tabla--densa">
-        <thead><tr><th>Categoría</th><th>Uso</th><th>Acción</th></tr></thead>
+        <thead><tr><th>Modalidad</th><th>Código</th><th>Uso</th><th>Acción</th></tr></thead>
         <tbody>
-          {filas.map((categoria) => {
-            const apagada = apagadas.has(categoria.id);
+          {filas.map((modalidad) => {
+            const apagada = apagadas.has(modalidad.id);
             return (
-              <tr key={categoria.id}>
-                <td className="tabla__producto">{categoria.nombre}</td>
-                <td><span className={`chip ${apagada ? "chip--neutro" : "chip--ok"}`}>{apagada ? "Apartada" : "Disponible"}</span></td>
+              <tr key={modalidad.id}>
+                <td className="tabla__producto">{modalidad.nombre}</td>
+                <td>{modalidad.codigo}</td>
+                <td><span className={`chip ${apagada ? "chip--neutro" : "chip--ok"}`}>{apagada ? "Inactiva" : "Activa"}</span></td>
                 <td className="tabla__accion">
-                  <button type="button" className="btn btn--linea" onClick={() => onCambiar(categoria)}>{apagada ? "Activar" : "Apartar"}</button>
+                  <button type="button" className="btn btn--linea" onClick={() => onCambiar(modalidad)}>{apagada ? "Activar" : "Inactivar"}</button>
                 </td>
               </tr>
             );
@@ -483,18 +523,19 @@ function TablaCategorias({ filas, apagadas, onCambiar }) {
 }
 
 function TablaBitacora({ filas }) {
-  if (!filas.length) return <p className="consola__vacio">Aún no hay movimientos. Cada alta, cambio de acceso o categoría queda aquí.</p>;
+  if (!filas.length) return <p className="consola__vacio">Aún no hay movimientos. Cada alta, cambio de acceso o modalidad queda aquí.</p>;
   return (
     <div className="tabla-wrap">
       <table className="tabla tabla--densa">
-        <thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Recurso</th><th>Detalle</th></tr></thead>
         <tbody>
           {filas.map((item) => (
-            <tr key={`${item.fecha}-${item.detalle}`}>
-              <td>{fechaDe(item.fecha)}</td>
-              <td>{item.autor}</td>
+            <tr key={`${item.creadoEn}-${item.accion}-${item.recursoId || ""}`}>
+              <td>{fechaDe(item.creadoEn)}</td>
+              <td>{item.actor}</td>
               <td>{item.accion}</td>
-              <td>{item.detalle}</td>
+              <td>{item.recurso}</td>
+              <td>{detalleDe(item)}</td>
             </tr>
           ))}
         </tbody>
@@ -503,14 +544,3 @@ function TablaBitacora({ filas }) {
   );
 }
 
-function Habilitar({ onElegir }) {
-  const [rol, setRol] = useState("trabajador");
-  return (
-    <span className="admin-habilitar">
-      <select value={rol} onChange={(evento) => setRol(evento.target.value)} aria-label="Acceso a habilitar">
-        {ROLES_ALTA.map((id) => <option key={id} value={id}>{ROLES[id].etiqueta}</option>)}
-      </select>
-      <button type="button" className="btn btn--naranja" onClick={() => onElegir(rol)}>Habilitar</button>
-    </span>
-  );
-}

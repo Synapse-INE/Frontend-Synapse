@@ -732,7 +732,7 @@ button, input, select { font-family: inherit; }
 .chip--jefe { background: #fff1e4; color: #c45e0a; }
 .chip--trabajador { background: var(--azul-suave); color: var(--azul); }
 .chip--proveedor { background: #eef6dc; color: #4f7a18; }
-.chip--externo { background: var(--fondo); color: var(--muted); }
+.chip--externo, .chip--solicitante { background: #fff1e4; color: #c45e0a; }
 .consola__dos { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 12px; align-items: stretch; }
 .consola__tarjeta {
   background: #fff;
@@ -2118,6 +2118,12 @@ form.dialogo-producto__panel.formulario {
 }
 .formulario__zona p { margin: 0; font-size: 0.9rem; }
 .formulario__zona--activa { border-color: var(--azul); background: var(--azul-suave); }
+.formulario__productos { display: grid; gap: 10px; margin: 0; padding: 12px; border: 1px solid var(--linea); border-radius: 12px; }
+.formulario__productos legend { padding: 0 6px; color: var(--azul); font-weight: 700; }
+.formulario__producto { display: grid; grid-template-columns: 1.4fr 0.8fr 0.6fr 0.5fr auto; gap: 8px; align-items: end; }
+@media (max-width: 700px) {
+  .formulario__producto { grid-template-columns: 1fr 1fr; }
+}
 
 .formulario__archivos { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
 .formulario__archivos li {
@@ -2231,8 +2237,8 @@ form.dialogo-producto__panel.formulario {
   from { background: #e7f6d8; }
   to { background: transparent; }
 }
-.mesa-resumen button:nth-child(5) .track i { background: linear-gradient(90deg, var(--naranja), #f5a04a); }
-.mesa-resumen button:nth-child(5) strong { color: var(--naranja); }
+.mesa-resumen--4 button:nth-child(4) .track i { background: linear-gradient(90deg, var(--naranja), #f5a04a); }
+.mesa-resumen--4 button:nth-child(4) strong { color: var(--naranja); }
 .mesa-herramientas {
   display: grid;
   grid-template-columns: minmax(220px, 1.3fr) minmax(160px, 0.7fr) minmax(280px, 1.15fr);

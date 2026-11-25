@@ -11,7 +11,7 @@ const PASOS = [
     popover: {
       title: "Para qué sirve esta pantalla",
       description:
-        "Aquí se lleva el catálogo del proveedor: cada producto que ofrece y el precio vigente. El precio se guarda con el IVA del 12 % incluido. A los seis meses de la última actualización el precio deja de estar vigente y se confirma o se cambia para que el catálogo siga disponible.",
+        "Aquí se lleva el catálogo del proveedor: cada producto que ofrece y el precio vigente. El precio se guarda con el IVA del 12 % incluido, en quetzales. La vigencia corre seis meses desde la fecha de ese monto. Al vencer, se confirma o se cambia para que el catálogo siga disponible.",
       side: "bottom",
       align: "start",
     },
@@ -24,11 +24,10 @@ const PASOS = [
         "Este botón abre el formulario de un producto nuevo. El formulario pide:"
         + "<ul>"
         + "<li><b>Nombre y descripción.</b> Identifican el producto y lo distinguen de otros parecidos.</li>"
-        + "<li><b>Presentación y categoría.</b> La presentación es unidad, resma, ciento o caja. La categoría define los atributos que se piden después.</li>"
-        + "<li><b>Atributos.</b> Marca, material, medida u otros campos de esa categoría. Describen el producto y no se suman al precio.</li>"
-        + "<li><b>Precio con IVA.</b> El monto sin IVA se calcula solo. Si falta el nombre, la descripción o el precio, el campo se marca y no se guarda.</li>"
-        + "<li><b>Condiciones.</b> Entrega o garantía. Quedan anotadas y no se suman al precio.</li>"
-        + "<li><b>Fechas.</b> La fecha de carga queda fija al guardar. La última actualización empieza ese mismo día.</li>"
+        + "<li><b>Presentación y categoría.</b> La presentación es unidad, resma, ciento o caja. La categoría se escribe en texto libre, como se ofrece el producto.</li>"
+        + "<li><b>Atributos.</b> Marca, modelo y especificación. Describen el producto y no se suman al precio.</li>"
+        + "<li><b>Precio con IVA.</b> Un solo monto, en quetzales. Si falta el nombre, la descripción, la categoría o el precio, el campo se marca y no se guarda.</li>"
+        + "<li><b>Fechas.</b> La fecha de carga queda fija. La vigencia del precio corre seis meses desde la fecha de ese monto.</li>"
         + "</ul>",
       side: "bottom",
       align: "end",
@@ -37,14 +36,13 @@ const PASOS = [
   {
     element: "#prov-resumen",
     popover: {
-      title: "Las cinco tarjetas",
+      title: "Las cuatro tarjetas",
       description:
         "Cada tarjeta filtra la lista y muestra cuántos productos hay en ese grupo."
         + "<ul>"
         + "<li><b>Productos.</b> El catálogo completo.</li>"
-        + "<li><b>Vigentes.</b> Precios actualizados en los últimos seis meses.</li>"
-        + "<li><b>Por confirmar.</b> Ya cumplieron seis meses y esperan confirmación o un precio nuevo.</li>"
-        + "<li><b>No reconfirmados.</b> No hubo respuesta. Siguen en el catálogo, marcados aparte.</li>"
+        + "<li><b>Vigentes.</b> El precio sigue dentro de los seis meses de vigencia.</li>"
+        + "<li><b>Por confirmar.</b> La vigencia ya venció y el precio espera confirmación o un monto nuevo.</li>"
         + "<li><b>Requieren acción.</b> Reúne todo lo que no está vigente, para atenderlo primero.</li>"
         + "</ul>",
       side: "bottom",
@@ -78,10 +76,9 @@ const PASOS = [
       description:
         "La leyenda resume qué pasa con un precio a lo largo del tiempo."
         + "<ul>"
-        + "<li><b>Vigente.</b> La última actualización tiene menos de seis meses.</li>"
-        + "<li><b>Por confirmar.</b> Ya pasaron seis meses. Hay 48 horas para responder.</li>"
-        + "<li><b>Confirmar o cambiar.</b> El precio vuelve a vigente y el movimiento queda en el historial.</li>"
-        + "<li><b>Sin respuesta.</b> El producto sigue visible, marcado como no reconfirmado.</li>"
+        + "<li><b>Vigente.</b> La fecha del precio más seis meses aún no se cumple.</li>"
+        + "<li><b>Por confirmar.</b> Esa vigencia ya venció.</li>"
+        + "<li><b>Confirmar o cambiar.</b> Se agrega otra fila al historial y la vigencia vuelve a correr seis meses.</li>"
         + "</ul>",
       side: "bottom",
       align: "start",
@@ -97,8 +94,8 @@ const PASOS = [
         + "<li><b>Código.</b> Identifica el producto dentro del catálogo.</li>"
         + "<li><b>Producto y descripción.</b> El nombre y el detalle. La descripción larga se corta en la fila; en la ficha se lee completa.</li>"
         + "<li><b>Presentación.</b> La unidad en la que se ofrece.</li>"
-        + "<li><b>Precio c/IVA.</b> El monto vigente, con el IVA incluido.</li>"
-        + "<li><b>Actualización.</b> La fecha del último precio. No es la fecha de la primera carga.</li>"
+        + "<li><b>Precio c/IVA.</b> El monto vigente, con el IVA incluido, en quetzales.</li>"
+        + "<li><b>Fecha del precio.</b> La fecha del último monto. No es la fecha de la primera carga.</li>"
         + "</ul>",
       side: "top",
       align: "start",
@@ -109,7 +106,7 @@ const PASOS = [
     popover: {
       title: "El estado de la fila",
       description:
-        "La etiqueta resume la vigencia de ese precio: vigente, por confirmar o no reconfirmado. En Ver se explica qué significa y se ven las dos fechas: la de carga, que no cambia, y la última actualización, que solo se mueve cuando el precio se confirma o se modifica.",
+        "La etiqueta resume la vigencia de ese precio: vigente o por confirmar. En Ver se explica qué significa y se ven la fecha de carga, la fecha del precio y hasta cuándo corre la vigencia.",
       side: "top",
       align: "start",
     },
@@ -120,9 +117,9 @@ const PASOS = [
       title: "Ver, editar y confirmar",
       description:
         "<ul>"
-        + "<li><b>Ver.</b> Abre la ficha: estado, presentación, categoría, precio con IVA y sin IVA, fecha de carga, última actualización, condiciones, descripción, atributos e historial. El historial guarda cada precio, la fecha, el motivo y quién lo registró.</li>"
-        + "<li><b>Editar.</b> Abre el mismo formulario, con los datos ya escritos. Si el precio cambia, se agrega al historial y la vigencia vuelve a empezar. Si solo cambian la descripción o los atributos, el precio y su fecha siguen igual.</li>"
-        + "<li><b>Confirmar.</b> Solo aparece cuando el precio no está vigente. Renueva la fecha, lo deja vigente y anota la confirmación en el historial, sin cambiar el monto.</li>"
+        + "<li><b>Ver.</b> Abre la ficha: estado, presentación, categoría, precio con IVA, moneda, fecha de carga, fecha del precio, vigencia, descripción, atributos e historial. El historial guarda cada monto, su fecha, la moneda y la vigencia.</li>"
+        + "<li><b>Editar.</b> Abre el mismo formulario, con los datos ya escritos. Si el precio cambia, se agrega una fila al historial y la vigencia vuelve a empezar. Si solo cambian la descripción o los atributos, el precio y su fecha siguen igual.</li>"
+        + "<li><b>Confirmar.</b> Solo aparece cuando el precio no está vigente. Agrega el mismo monto con la fecha de hoy y abre otra vigencia de seis meses.</li>"
         + "</ul>",
       side: "top",
       align: "end",
