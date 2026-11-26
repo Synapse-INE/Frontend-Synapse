@@ -36,6 +36,15 @@ export async function crearYEnviarSolicitud(datos, archivos = []) {
   const creada = await conDiagnostico("POST /api/v1/solicitudes", () => (
     solicitar("/solicitudes", { method: "POST", cuerpo })
   ));
+  if (!creada || typeof creada.id !== "string") {
+    console.error("[solicitud] POST /api/v1/solicitudes respondió sin el id del borrador", {
+      tipoRespuesta: creada === null ? "null" : typeof creada,
+      campos: creada && typeof creada === "object" ? Object.keys(creada) : [],
+    });
+    throw new Error(
+      "La API no devolvió los datos del borrador. Revisa Mis solicitudes antes de volver a intentarlo.",
+    );
+  }
   try {
     for (const archivo of archivos) {
       await conDiagnostico(`POST /api/v1/solicitudes/${creada.id}/adjuntos`, () => (
@@ -52,7 +61,7 @@ export async function crearYEnviarSolicitud(datos, archivos = []) {
     throw new ApiError(
       fallo instanceof ApiError ? fallo.status : 0,
       fallo instanceof ApiError ? fallo.code : undefined,
-      `${detail} El borrador ${creada.codigo} quedó guardado en tu cuenta.`,
+      `${detail} El borrador ${creada.codigo || creada.id} quedó guardado en tu cuenta.`,
       fallo instanceof ApiError ? fallo.errors : [],
     );
   }
