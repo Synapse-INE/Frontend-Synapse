@@ -7,6 +7,10 @@
 
 **Demostración en línea:** [synapse.realiquezisaac.workers.dev](https://synapse.realiquezisaac.workers.dev/)
 
+> **Antes de probar la demo:** La API puede suspenderse tras un período de inactividad. Por eso, la primera solicitud puede tardar hasta un minuto mientras el sistema se reactiva; espere y vuelva a cargar la página si es necesario.
+>
+> **Correo electrónico:** El proveedor bloqueó temporalmente el envío por motivos de seguridad, así que los correos no están funcionando en la demo. En pruebas comprobamos que el sistema sí puede enviarlos cuando SMTP está configurado. Para habilitarlo, el equipo del INE o el cliente debe configurar las variables de entorno SMTP del backend.
+
 ## Problema y propuesta de valor
 
 La consulta de precios de referencia y el seguimiento de las solicitudes de investigación requieren información accesible, trazable y organizada por rol. Synapse concentra estos procesos en una interfaz web: permite consultar el catálogo público de precios de referencia, solicitar investigaciones y dar seguimiento a los expedientes generados.
@@ -154,7 +158,7 @@ El Worker de producción reenvía las solicitudes API al servicio desplegado de 
 
 ## Limitaciones de la demostración
 
-- La demostración depende de servicios con planes gratuitos. La API puede tardar en responder cuando el servicio se reactiva después de un período de inactividad.
+- La demostración depende de servicios con planes gratuitos, por lo que su disponibilidad y tiempo de respuesta pueden variar.
 - La integración de Turnstile utiliza una clave de pruebas en el entorno de demostración.
 - Los archivos adjuntos de la demostración no cuentan con almacenamiento persistente de producción, por lo que pueden no conservarse después de reinicios del servicio.
 
