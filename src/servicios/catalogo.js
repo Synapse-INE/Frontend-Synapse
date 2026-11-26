@@ -1,8 +1,7 @@
-import { CATEGORIA_POR_ID, LIMITES_BUSQUEDA, OPCIONES_BUSQUEDA } from "../data/categorias";
-import { PRECIOS } from "../data/precios";
+import { LIMITES_BUSQUEDA, OPCIONES_BUSQUEDA } from "../data/categorias";
 
 const OPCIONES_PERMITIDAS = new Set(OPCIONES_BUSQUEDA.map((o) => o.id));
-const API_CATALOGO = String(import.meta.env.VITE_API_CATALOGO ?? "").replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
 function quitarControles(texto) {
   return String(texto ?? "").replace(/[\u0000-\u001F\u007F]/g, "");
@@ -24,9 +23,6 @@ export function sanitizarConsulta({ opcion, valor }) {
     limpio = limpio.replace(/[^0-9A-Za-z-]/g, "");
   }
   if (tipo === "fecha" && limpio && !fechaValida(limpio)) {
-    limpio = "";
-  }
-  if (tipo === "categoria" && limpio && !CATEGORIA_POR_ID[limpio]) {
     limpio = "";
   }
 
@@ -51,53 +47,37 @@ export function consultaAParams({ opcion, valor }) {
   return params;
 }
 
-function coincideLocal(item, { opcion, valor }) {
-  if (!valor) return true;
-  const texto = [
-    item.producto,
-    item.caracteristicas,
-    item.presentacion,
-    item.evento,
-    item.modalidad,
-    item.nog,
-  ]
-    .join(" ")
-    .toLowerCase();
-  if (opcion === "producto") return texto.includes(valor.toLowerCase());
-  if (opcion === "categoria") return item.categoriaId === valor;
-  if (opcion === "nog") return String(item.nog ?? "").toLowerCase() === valor.toLowerCase();
-  if (opcion === "fecha") return item.fechaPublicacion === valor;
-  return texto.includes(valor.toLowerCase()) || item.categoriaId === valor || item.fechaPublicacion === valor;
+export async function listarCategoriasPublicas() {
+  const respuesta = await fetch(`${BASE}/api/v1/publicacion/categorias`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!respuesta.ok) throw new Error("No se pudieron cargar las categorías.");
+  const datos = await respuesta.json();
+  return Array.isArray(datos.categorias) ? datos.categorias : [];
 }
 
-export async function listarCategorias() {
-  if (API_CATALOGO) {
-    const respuesta = await fetch(`${API_CATALOGO}/categorias`, { credentials: "omit" });
-    if (!respuesta.ok) throw new Error("No se pudieron cargar las categorías.");
-    const datos = await respuesta.json();
-    if (!Array.isArray(datos)) throw new Error("Respuesta de categorías no válida.");
-    return datos;
-  }
-  return CATEGORIAS_DESDE_DATOS();
-}
-
-function CATEGORIAS_DESDE_DATOS() {
-  return Object.values(CATEGORIA_POR_ID).sort((a, b) =>
-    a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
-  );
-}
-
-export async function buscarPublicacion(consulta) {
+export async function buscarPublicacion(consulta, { limite = 20, pagina = 1 } = {}) {
   const limpia = sanitizarConsulta(consulta);
-  if (API_CATALOGO) {
-    const url = new URL(`${API_CATALOGO}/precios`);
-    url.searchParams.set("op", limpia.opcion);
-    if (limpia.valor) url.searchParams.set("v", limpia.valor);
-    const respuesta = await fetch(url, { credentials: "omit" });
-    if (!respuesta.ok) throw new Error("No se pudo consultar la publicación.");
-    const datos = await respuesta.json();
-    if (!Array.isArray(datos)) throw new Error("Respuesta de precios no válida.");
-    return datos;
-  }
-  return PRECIOS.filter((item) => coincideLocal(item, limpia));
+  const url = new URL(`${BASE}/api/v1/publicacion/renglones`);
+  url.searchParams.set("limite", String(limite));
+  url.searchParams.set("pagina", String(pagina));
+  const campo = {
+    producto: "producto",
+    categoria: "categoria",
+    nog: "nog",
+    fecha: "fecha",
+    todos: "texto",
+  }[limpia.opcion];
+  if (limpia.valor && campo) url.searchParams.set(campo, limpia.valor);
+
+  const respuesta = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!respuesta.ok) throw new Error("No se pudo consultar la publicación.");
+  const datos = await respuesta.json();
+  return {
+    items: Array.isArray(datos.renglones) ? datos.renglones : [],
+    total: Number(datos.total) || 0,
+    vigentes: Number(datos.vigentes) || 0,
+    pagina: Number(datos.pagina) || 1,
+    paginas: Number(datos.paginas) || 1,
+  };
 }

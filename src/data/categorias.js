@@ -1038,6 +1038,6 @@ export const LIMITES_BUSQUEDA = {
   producto: 120,
   todos: 120,
   nog: 32,
-  categoria: 96,
+  categoria: 240,
   fecha: 10,
 };

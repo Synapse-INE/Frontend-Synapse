@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { CATEGORIAS, OPCIONES_BUSQUEDA, LIMITES_BUSQUEDA } from "../../data/categorias";
+import { OPCIONES_BUSQUEDA, LIMITES_BUSQUEDA } from "../../data/categorias";
 import { sanitizarConsulta } from "../../servicios/catalogo";
 import { Boton } from "../../components/ui/Boton";
+import { SelectorCategoria } from "./SelectorCategoria";
+import { SelectorOpcion } from "./SelectorOpcion";
 
 const ETIQUETAS = {
   todos: "Término",
@@ -11,14 +13,21 @@ const ETIQUETAS = {
   fecha: "Fecha",
 };
 
-export function BuscadorPublicacion({ inicial, onBuscar, compacto = false }) {
+export function BuscadorPublicacion({ inicial, onBuscar, compacto = false, categorias = [] }) {
   const partida = sanitizarConsulta(inicial);
   const [opcion, setOpcion] = useState(partida.opcion);
   const [valor, setValor] = useState(partida.valor);
+  const [aviso, setAviso] = useState("");
 
   function enviar(evento) {
     evento.preventDefault();
-    onBuscar(sanitizarConsulta({ opcion, valor }));
+    const consulta = sanitizarConsulta({ opcion, valor });
+    if (consulta.valor && opcion !== "categoria" && opcion !== "fecha" && consulta.valor.length < 2) {
+      setAviso("Escribe al menos 2 caracteres.");
+      return;
+    }
+    setAviso("");
+    onBuscar(consulta);
   }
 
   const limite = LIMITES_BUSQUEDA[opcion] ?? 120;
@@ -27,33 +36,20 @@ export function BuscadorPublicacion({ inicial, onBuscar, compacto = false }) {
     <form className={`consulta-catalogo${compacto ? " consulta-catalogo--compacto" : ""}`} onSubmit={enviar}>
       <label className="consulta-catalogo__campo">
         <span>Opciones de búsqueda</span>
-        <select
-          name="op"
-          value={opcion}
-          onChange={(e) => {
-            setOpcion(e.target.value);
+        <SelectorOpcion
+          opciones={OPCIONES_BUSQUEDA}
+          valor={opcion}
+          onCambio={(siguiente) => {
+            setOpcion(siguiente);
             setValor("");
           }}
-        >
-          {OPCIONES_BUSQUEDA.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.etiqueta}
-            </option>
-          ))}
-        </select>
+        />
       </label>
 
       <label className="consulta-catalogo__campo consulta-catalogo__campo--valor">
         <span>{ETIQUETAS[opcion]}</span>
         {opcion === "categoria" ? (
-          <select name="v" value={valor} onChange={(e) => setValor(e.target.value)}>
-            <option value="">Todas las categorías</option>
-            {CATEGORIAS.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.nombre}
-              </option>
-            ))}
-          </select>
+          <SelectorCategoria categorias={categorias} valor={valor} onCambio={setValor} />
         ) : opcion === "fecha" ? (
           <input
             name="v"
@@ -83,6 +79,7 @@ export function BuscadorPublicacion({ inicial, onBuscar, compacto = false }) {
       <Boton type="submit" variante="azul">
         Consultar
       </Boton>
+      {aviso ? <p className="consulta-catalogo__aviso" role="alert">{aviso}</p> : null}
     </form>
   );
 }

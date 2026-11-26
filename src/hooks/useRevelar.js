@@ -7,34 +7,45 @@ function enPantalla(el) {
 
 export function useRevelar(dependencia) {
   useEffect(() => {
-    const nodos = [...document.querySelectorAll(".revelar")];
-    if (!nodos.length) return undefined;
+    const root = document.getElementById("contenido");
+    if (!root) return undefined;
 
     const reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducir) {
-      nodos.forEach((el) => el.classList.add("es-visible"));
-      return undefined;
+    const observador = reducir
+      ? null
+      : new IntersectionObserver(
+          (entradas) => {
+            entradas.forEach((entrada) => {
+              if (!entrada.isIntersecting) return;
+              entrada.target.classList.add("es-visible");
+              observador?.unobserve(entrada.target);
+            });
+          },
+          { threshold: 0.12, rootMargin: "0px 0px -4% 0px" },
+        );
+
+    function marcar(nodos) {
+      nodos.forEach((el) => {
+        if (el.classList.contains("es-visible")) return;
+        if (reducir || enPantalla(el)) {
+          el.classList.add("es-visible");
+          return;
+        }
+        observador?.observe(el);
+      });
     }
 
-    const observador = new IntersectionObserver(
-      (entradas) => {
-        entradas.forEach((entrada) => {
-          if (!entrada.isIntersecting) return;
-          entrada.target.classList.add("es-visible");
-          observador.unobserve(entrada.target);
-        });
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -4% 0px" }
-    );
+    function escanear() {
+      marcar([...root.querySelectorAll(".revelar")]);
+    }
 
-    nodos.forEach((el) => {
-      if (enPantalla(el)) {
-        el.classList.add("es-visible");
-      } else {
-        observador.observe(el);
-      }
-    });
+    escanear();
+    const mutaciones = new MutationObserver(escanear);
+    mutaciones.observe(root, { childList: true, subtree: true });
 
-    return () => observador.disconnect();
+    return () => {
+      mutaciones.disconnect();
+      observador?.disconnect();
+    };
   }, [dependencia]);
 }

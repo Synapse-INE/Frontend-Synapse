@@ -1,0 +1,138 @@
+.solicitudes-mesa {
+  margin-top: 4px;
+}
+
+.mesa-herramientas--solicitudes {
+  grid-template-columns: minmax(200px, 1.4fr) minmax(160px, 0.9fr) auto;
+  align-items: end;
+}
+
+.solicitudes-mesa__conteo {
+  margin: 0;
+  align-self: center;
+  justify-self: end;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.solicitudes-mesa__lista {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 16px;
+  border-top: 1px solid var(--linea);
+}
+
+.solicitud-fila {
+  width: 100%;
+  border: 1px solid var(--linea);
+  background: var(--fondo);
+  border-radius: 14px;
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.solicitud-fila:hover,
+.solicitud-fila:focus-visible {
+  border-color: var(--azul-medio);
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(22, 59, 120, 0.08);
+  outline: none;
+}
+
+.solicitud-fila__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.solicitud-fila__codigo {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--azul-profundo);
+  letter-spacing: 0.02em;
+}
+
+.solicitud-fila__fecha {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.solicitud-fila__asunto {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.solicitud-fila__pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.solicitud-fila__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--azul-suave);
+  color: var(--azul);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.solicitud-fila__chip--muted {
+  background: #eef2f8;
+  color: #5b6778;
+}
+
+.solicitud-fila .atencion {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.solicitudes-mesa__vacio {
+  padding: 32px 20px 36px;
+  text-align: center;
+  border-top: 1px solid var(--linea);
+}
+
+.solicitudes-mesa__vacio h3 {
+  margin: 0 0 8px;
+  color: var(--azul-profundo);
+}
+
+.solicitudes-mesa__vacio p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  max-width: 36rem;
+  margin-inline: auto;
+}
+
+@media (max-width: 900px) {
+  .mesa-herramientas--solicitudes {
+    grid-template-columns: 1fr 1fr;
+  }
+  .solicitudes-mesa__conteo {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .mesa-herramientas--solicitudes {
+    grid-template-columns: 1fr;
+  }
+}

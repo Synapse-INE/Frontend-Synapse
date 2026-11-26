@@ -11,6 +11,7 @@ export function TablaPrecios({ items }) {
         <table className="tabla">
           <thead>
             <tr>
+              <th>NOG</th>
               <th>Producto</th>
               <th>Presentación</th>
               <th>Precio de referencia</th>
@@ -24,11 +25,12 @@ export function TablaPrecios({ items }) {
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td colSpan={6}>No hay renglones que coincidan con la búsqueda.</td>
+                <td colSpan={7}>No hay renglones que coincidan con la búsqueda.</td>
               </tr>
             )}
             {items.map((item) => (
               <tr key={item.id}>
+                <td className="tabla__nog">{item.nog || "—"}</td>
                 <td>
                   <strong className="tabla__producto">{item.producto}</strong>
                 </td>
