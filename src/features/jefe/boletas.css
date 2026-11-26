@@ -170,6 +170,20 @@
 }
 .boletas__chip--alerta { background: #ffedd5; color: #9a3412; }
 
+/* Sugerencias del catálogo importado */
+.boletas__sugerencias { display: grid; gap: 10px; padding: 14px; border: 1px solid #dbe5f3; border-radius: 14px; background: #f4f8fd; }
+.boletas__sugerencias > header { display: flex; justify-content: space-between; gap: 12px; }
+.boletas__sugerencias h5 { margin: 0 0 3px; color: var(--azul-profundo); font-size: .88rem; }
+.boletas__sugerencias p, .boletas__sugerencias > header span { margin: 0; color: var(--b-tenue); font-size: .76rem; }
+.boletas__sugerencia-grupo { display: grid; gap: 6px; }
+.boletas__sugerencia-grupo > strong { color: var(--ink); font-size: .8rem; }
+.boletas__sugerencia-grupo > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 7px; }
+.boletas__sugerencia { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 9px 10px; border: 1px solid #d5e1f0; border-radius: 10px; background: #fff; color: var(--ink); text-align: left; cursor: pointer; }
+.boletas__sugerencia:hover { border-color: var(--azul); background: #f9fcff; }
+.boletas__sugerencia span { font-size: .78rem; font-weight: 700; }
+.boletas__sugerencia b { color: var(--azul-profundo); font-size: .8rem; white-space: nowrap; }
+.boletas__sugerencia small { grid-column: 1 / -1; color: var(--b-tenue); font-size: .7rem; }
+
 /* Registradas */
 .boletas__registro h5,
 .boletas__form-cabeza h5 {

@@ -58,7 +58,9 @@ export async function listarCategoriasPublicas() {
 
 export async function buscarPublicacion(consulta, { limite = 20, pagina = 1 } = {}) {
   const limpia = sanitizarConsulta(consulta);
-  const url = new URL(`${BASE}/api/v1/publicacion/renglones`);
+  // En producción BASE es una ruta relativa ("/"). URL necesita un origen
+  // explícito para construir una dirección absoluta; fetch sí acepta ambas.
+  const url = new URL(`${BASE}/api/v1/publicacion/renglones`, window.location.origin);
   url.searchParams.set("limite", String(limite));
   url.searchParams.set("pagina", String(pagina));
   const campo = {

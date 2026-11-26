@@ -29,6 +29,7 @@ function formularioVacio(productoId = "", unidad = "unidad", fuenteId = "") {
     fechaConsulta: hoy(),
     evidencia: "",
     observacion: "",
+    referenciaIneId: "",
   };
 }
 
@@ -58,6 +59,8 @@ export function BoletasInvestigacion({ detalle, fuentes, ocupado, setError, actu
   const [arrastrando, setArrastrando] = useState(false);
   const [errorPrecio, setErrorPrecio] = useState("");
   const [correccion, setCorreccion] = useState(null);
+  const [sugerencias, setSugerencias] = useState({});
+  const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
   const formRef = useRef(null);
   const precioRef = useRef(null);
 
@@ -97,6 +100,30 @@ export function BoletasInvestigacion({ detalle, fuentes, ocupado, setError, actu
     setArchivo(null);
   }, [detalle.id]);
 
+  useEffect(() => {
+    let activa = true;
+    const consultables = productos.filter((producto) => producto.nombre?.trim().length >= 2);
+    if (!consultables.length) {
+      setSugerencias({});
+      return undefined;
+    }
+    setCargandoSugerencias(true);
+    Promise.all(consultables.map(async (producto) => {
+      const datos = await solicitar(`/referencias-ine?texto=${encodeURIComponent(producto.nombre.trim())}&limite=4`);
+      return [producto.id, datos.referencias || []];
+    }))
+      .then((filas) => {
+        if (activa) setSugerencias(Object.fromEntries(filas));
+      })
+      .catch(() => {
+        if (activa) setSugerencias({});
+      })
+      .finally(() => {
+        if (activa) setCargandoSugerencias(false);
+      });
+    return () => { activa = false; };
+  }, [detalle.id]);
+
   function cambiar(campo, valor) {
     setForm((previo) => ({ ...previo, [campo]: valor }));
     if (campo === "precio") setErrorPrecio("");
@@ -104,6 +131,23 @@ export function BoletasInvestigacion({ detalle, fuentes, ocupado, setError, actu
 
   function elegirProducto(producto) {
     setForm((previo) => ({ ...previo, productoSolicitudId: producto.id, unidadMedida: producto.unidadMedida || previo.unidadMedida }));
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => precioRef.current?.focus(), 350);
+  }
+
+  function aplicarSugerencia(producto, referencia) {
+    const fuenteIne = fuentes.find((fuente) => /cat[aá]logo.*ine/i.test(fuente.nombre));
+    setForm((previo) => ({
+      ...previo,
+      productoSolicitudId: producto.id,
+      ...(fuenteIne ? { fuenteId: fuenteIne.id } : {}),
+      precio: referencia.precioReferencia || previo.precio,
+      unidadMedida: referencia.presentacion || producto.unidadMedida || previo.unidadMedida,
+      referenciaIneId: referencia.id,
+      evidencia: referencia.nog ? `NOG ${referencia.nog}` : previo.evidencia,
+      observacion: `Sugerencia del catálogo INE: ${referencia.producto || producto.nombre}`.slice(0, 500),
+    }));
+    setErrorPrecio("");
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     window.setTimeout(() => precioRef.current?.focus(), 350);
   }
@@ -141,6 +185,7 @@ export function BoletasInvestigacion({ detalle, fuentes, ocupado, setError, actu
             precio,
             unidadMedida: enviado.unidadMedida.trim() || "unidad",
             moneda: "GTQ",
+            ...(enviado.referenciaIneId ? { referenciaIneId: enviado.referenciaIneId } : {}),
             ...(enviado.observacion.trim() ? { observacion: enviado.observacion.trim() } : {}),
           }],
         },
@@ -221,6 +266,34 @@ export function BoletasInvestigacion({ detalle, fuentes, ocupado, setError, actu
           </li>
         ))}
       </ul>
+
+      <section className="boletas__sugerencias" aria-labelledby="sugerencias-titulo">
+        <header>
+          <div>
+            <h5 id="sugerencias-titulo">Sugerencias del catálogo interno del INE</h5>
+            <p>Selecciona una para precargar la boleta. Puedes modificarla o registrar una boleta manualmente antes de guardarla.</p>
+          </div>
+          {cargandoSugerencias ? <span>Buscando…</span> : null}
+        </header>
+        {productos.map((producto) => {
+          const referencias = sugerencias[producto.id] || [];
+          if (!referencias.length) return null;
+          return (
+            <div key={producto.id} className="boletas__sugerencia-grupo">
+              <strong>{producto.nombre}</strong>
+              <div>
+                {referencias.map((referencia) => (
+                  <button type="button" key={referencia.id} className="boletas__sugerencia" onClick={() => aplicarSugerencia(producto, referencia)}>
+                    <span>{referencia.producto || "Producto del catálogo"}</span>
+                    <b>{moneda(referencia.precioReferencia)}</b>
+                    <small>{referencia.presentacion || "Sin presentación"}{referencia.categoriaOriginal ? ` · ${referencia.categoriaOriginal}` : ""}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </section>
 
       {consultas.length > 0 ? (
         <div className="boletas__registro">
