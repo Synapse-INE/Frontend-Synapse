@@ -2636,6 +2636,11 @@ form.dialogo-producto__panel.formulario {
   box-shadow: var(--sombra);
   overflow: hidden;
 }
+.mesa-pagina .mesa {
+  flex: none;
+  min-height: auto;
+  background: #fff;
+}
 .mesa-resumen {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

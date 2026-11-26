@@ -4,12 +4,12 @@ import { ESTADOS_TRABAJO, SIGUIENTE_ESTADO } from "./expedienteTrabajoUtil";
 export const GUIA_POR_ESTADO = {
   RECIBIDA: {
     titulo: "Recepción",
-    objetivo: "Verifica que la solicitud llegó completa y asigna quién la trabajará.",
+    objetivo: "Verifica que la solicitud llegó completa y asigna quién la trabajará. Mientras tanto, los proveedores tienen 2 días para actualizar sus precios.",
     alAvanzar: "El expediente pasa a revisión documental: se valida el S.00 y los productos solicitados.",
   },
   EN_REVISION: {
     titulo: "Revisión documental",
-    objetivo: "Confirma datos de la entidad, productos y modalidad. Los proveedores ya fueron avisados para actualizar precios.",
+    objetivo: "Confirma datos de la entidad, productos y modalidad. La investigación empieza cuando todos los proveedores actualicen sus precios o al vencer su plazo de 2 días.",
     alAvanzar: "Inicia la investigación de mercado: registra boletas con fuentes y precios observados.",
   },
   EN_INVESTIGACION: {
@@ -38,6 +38,34 @@ export const GUIA_POR_ESTADO = {
     alAvanzar: null,
   },
 };
+
+/** Espera de proveedores: bloquea salir de Recibida hasta que todos actualicen o venza el plazo. */
+export function esperaProveedores(detalle, ahora = Date.now()) {
+  const avisos = detalle?.avisosPrecio || [];
+  if (avisos.length === 0) return null;
+  const actualizados = avisos.filter((aviso) => aviso.actualizadoEn);
+  const pendientes = avisos.filter((aviso) => !aviso.actualizadoEn);
+  const vence = new Date(Math.max(...avisos.map((aviso) => new Date(aviso.venceEn).getTime())));
+  const vencido = ahora >= vence.getTime();
+  return {
+    total: avisos.length,
+    actualizados: actualizados.length,
+    pendientes,
+    vence,
+    vencido,
+    bloquea: pendientes.length > 0 && !vencido,
+  };
+}
+
+function tiempoRestante(fecha, ahora = Date.now()) {
+  const ms = fecha.getTime() - ahora;
+  if (ms <= 0) return "plazo vencido";
+  const horas = Math.ceil(ms / 3_600_000);
+  if (horas < 24) return `${horas} h restantes`;
+  const dias = Math.floor(horas / 24);
+  const resto = horas % 24;
+  return resto ? `${dias} d ${resto} h restantes` : `${dias} d restantes`;
+}
 
 export function metricasTramite(detalle) {
   const productos = detalle?.productos || [];
@@ -84,6 +112,18 @@ export function requisitosDeFase(detalle) {
   }
 
   if (estado === "RECIBIDA" || estado === "EN_REVISION") {
+    const espera = esperaProveedores(detalle);
+    if (espera) {
+      const listo = espera.pendientes.length === 0 || espera.vencido;
+      let texto = `Proveedores al día: ${espera.actualizados}/${espera.total}`;
+      if (espera.pendientes.length === 0) texto += " · todos actualizaron";
+      else if (espera.vencido) texto += " · plazo vencido, se puede continuar";
+      else texto += ` · ${tiempoRestante(espera.vence)}`;
+      items.push({ id: "proveedores", listo, texto });
+    }
+  }
+
+  if (estado === "RECIBIDA" || estado === "EN_REVISION") {
     items.push({
       id: "productos",
       listo: m.totalProductos > 0,
@@ -101,7 +141,7 @@ export function requisitosDeFase(detalle) {
         listo: tieneBoleta,
         texto: tieneBoleta
           ? `Boleta registrada: ${producto.nombre}`
-          : `Falta boleta: ${producto.nombre}`,
+          : `Falta boleta: ${producto.nombre} · regístrala abajo en «Boletas de investigación»`,
       });
     });
   }
@@ -146,6 +186,16 @@ export function bloqueoAvance(detalle) {
   if (!siguiente) return null;
   const m = metricasTramite(detalle);
   const productos = detalle?.productos || [];
+
+  if (siguiente === "EN_INVESTIGACION") {
+    const espera = esperaProveedores(detalle);
+    if (espera?.bloquea) {
+      const nombres = espera.pendientes.map((aviso) => aviso.proveedor?.nombreComercial).filter(Boolean);
+      return `Esperando a ${espera.pendientes.length} proveedor(es) para actualizar precios`
+        + `${nombres.length ? ` (${nombres.slice(0, 3).join(", ")}${nombres.length > 3 ? "…" : ""})` : ""}. `
+        + `Se podrá avanzar cuando todos actualicen o en ${tiempoRestante(espera.vence).replace(" restantes", "")}.`;
+    }
+  }
 
   if (siguiente === "EN_INFORME" && productos.length > 0 && m.validadas.size < productos.length) {
     return "Confirma el precio de cada producto en la sección «Precio confirmado» antes de pasar a informe.";

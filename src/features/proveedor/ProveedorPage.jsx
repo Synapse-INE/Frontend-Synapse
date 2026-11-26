@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Contenedor } from "../../components/ui/Contenedor";
-import { Etiqueta } from "../../components/ui/Etiqueta";
 import { formatearFecha, formatearQuetzales } from "../../data/precios";
 import {
   ATRIBUTOS,
@@ -29,13 +28,34 @@ import {
   validarProductoProveedor,
 } from "./productoProveedorForm";
 import { runTourProveedor, useTourProveedor } from "./tourProveedor";
+import { AvisosPrecio } from "./AvisosPrecio";
+import "./proveedorPage.css";
 
 const CORTES = [
-  { id: "todas", titulo: "Productos" },
-  { id: "vigente", titulo: "Vigentes" },
-  { id: "por_confirmar", titulo: "Por confirmar" },
-  { id: "accion", titulo: "Requieren acción" },
+  { id: "todas", titulo: "Productos", nota: "En tu catálogo", tono: "azul", icono: "caja" },
+  { id: "vigente", titulo: "Vigentes", nota: "Disponibles para el INE", tono: "lima", icono: "check" },
+  { id: "por_confirmar", titulo: "Por confirmar", nota: "Su vigencia venció", tono: "ambar", icono: "reloj" },
+  { id: "accion", titulo: "Requieren acción", nota: "Confirma o actualiza", tono: "naranja", icono: "alerta" },
 ];
+
+const TRAZOS = {
+  mas: "M12 5v14M5 12h14",
+  buscar: "M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM20 20l-3.5-3.5",
+  caja: "M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9zM3 7.5 12 12l9-4.5M12 12v9",
+  check: "M5 12.5l4.5 4.5L19 7.5",
+  reloj: "M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM12 7.5V12l3 2",
+  alerta: "M12 3.5 21.5 20h-19L12 3.5zM12 10v4M12 17h.01",
+  ojo: "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z",
+  lapiz: "M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4",
+};
+
+function Icono({ nombre }) {
+  return (
+    <svg className="prov-icono" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={TRAZOS[nombre]} />
+    </svg>
+  );
+}
 
 const CICLO = [
   { n: "01", titulo: "Vigente", texto: "La vigencia del precio aún no se cumple." },
@@ -66,6 +86,7 @@ export function ProveedorPage() {
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [marcado, setMarcado] = useState(null);
+  const [versionPrecios, setVersionPrecios] = useState(0);
   useTourProveedor();
 
   useEffect(() => {
@@ -202,6 +223,7 @@ export function ProveedorPage() {
       });
       if (!edicion) setCorte("todas");
       marcar(guardado.id);
+      setVersionPrecios((n) => n + 1);
       cerrarForma();
     } catch (fallo) {
       if (fallo instanceof ApiError) {
@@ -230,6 +252,7 @@ export function ProveedorPage() {
       );
       setDetalle((actual) => (actual?.id === actualizado.id ? actualizado : actual));
       marcar(actualizado.id);
+      setVersionPrecios((n) => n + 1);
     } catch (fallo) {
       setFalloCarga(
         fallo instanceof ApiError
@@ -242,72 +265,80 @@ export function ProveedorPage() {
   }
 
   return (
-    <section className="pagina bloque mesa-pagina revelar">
+    <section className="pagina prov-vista revelar">
       <Contenedor>
-        <header className="publicacion-encabezado">
-          <Etiqueta>{nombreEmpresa || sesion?.nombre}</Etiqueta>
-          <div className="publicacion-encabezado__titulo" id="prov-titulo">
-            <h2>Mis productos</h2>
-            <button type="button" className="mesa-tutorial" id="prov-tutorial" onClick={() => runTourProveedor()}>
-              Tutorial
-            </button>
-          </div>
-          <button type="button" id="prov-agregar" className="btn btn--naranja publicacion-encabezado__cta" onClick={abrirNuevo}>
-            Agregar producto
-          </button>
-          <div className="aviso-oficial">
+        <header className="prov-cabecera">
+          <div className="prov-cabecera__texto">
+            <p className="prov-kicker">{nombreEmpresa || sesion?.nombre}</p>
+            <div className="prov-cabecera__titulo" id="prov-titulo">
+              <h1>Mis productos</h1>
+              <button type="button" className="mesa-tutorial" id="prov-tutorial" onClick={() => runTourProveedor()}>
+                Tutorial
+              </button>
+            </div>
             <p>
               Aquí llevas los productos que ofreces y el precio vigente de cada uno. Cuando un precio cumple seis
               meses, confírmalo o actualízalo para que tu catálogo siga disponible.
             </p>
           </div>
+          <button type="button" id="prov-agregar" className="prov-cta" onClick={abrirNuevo}>
+            <Icono nombre="mas" />
+            Agregar producto
+          </button>
         </header>
 
-        <div className="mesa">
-            <div className="mesa-resumen mesa-resumen--4" id="prov-resumen" role="tablist" aria-label="Estado del catálogo">
-            {CORTES.map((item) => {
-              const cantidad = resumen[item.id];
-              const base = resumen.todas || 1;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={corte === item.id}
-                  className={corte === item.id ? "es-activa" : ""}
-                  onClick={() => setCorte(item.id)}
-                >
-                  <strong>{cantidad}</strong>
-                  <span>{item.titulo}</span>
-                  <div className="track" aria-hidden="true">
-                    <i style={{ "--p": `${Math.round((cantidad / base) * 100)}%` }} />
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+        <AvisosPrecio version={versionPrecios} />
 
-          <div className="mesa-herramientas" id="prov-herramientas">
-            <label id="prov-buscar">
-              <span>Buscar</span>
+        <div className="prov-kpis" id="prov-resumen" role="tablist" aria-label="Estado del catálogo">
+          {CORTES.map((item) => {
+            const cantidad = resumen[item.id];
+            const base = resumen.todas || 1;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={corte === item.id}
+                className={`prov-kpi prov-kpi--${item.tono}${corte === item.id ? " es-activo" : ""}`}
+                onClick={() => setCorte(item.id)}
+              >
+                <span className="prov-kpi__icono" aria-hidden="true"><Icono nombre={item.icono} /></span>
+                <span className="prov-kpi__texto">
+                  <small>{item.titulo}</small>
+                  <strong>{cantidad}</strong>
+                  <em>{item.nota}</em>
+                </span>
+                <span className="prov-kpi__track" aria-hidden="true">
+                  <i style={{ width: `${Math.round((cantidad / base) * 100)}%` }} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="prov-catalogo">
+          <div className="prov-barra" id="prov-herramientas">
+            <label className="prov-buscar" id="prov-buscar">
+              <span className="sr-only">Buscar</span>
+              <Icono nombre="buscar" />
               <input
                 type="search"
                 value={busqueda}
                 onChange={(evento) => setBusqueda(evento.target.value)}
-                placeholder="Código, producto o descripción"
+                placeholder="Buscar por código, producto o descripción"
               />
             </label>
-            <label id="prov-presentacion">
-              <span>Presentación</span>
+            <label className="prov-filtro" id="prov-presentacion">
+              <span className="sr-only">Presentación</span>
               <select value={presentacion} onChange={(evento) => setPresentacion(evento.target.value)}>
-                <option value="">Todas</option>
+                <option value="">Todas las presentaciones</option>
                 {PRESENTACIONES_SUGERIDAS.map((item) => (
                   <option key={item}>{item}</option>
                 ))}
               </select>
             </label>
-            <div className="mesa-leyenda" id="prov-leyenda">
-              <span>Vigencia del precio</span>
+            <div className="prov-leyenda" id="prov-leyenda">
+              <span>Vigencia</span>
               <ol>
                 {CICLO.map((paso) => (
                   <li key={paso.n} title={paso.texto}>
@@ -320,59 +351,91 @@ export function ProveedorPage() {
           </div>
 
           {cargando ? (
-            <p className="mesa-vacia" role="status">Cargando catálogo…</p>
+            <p className="prov-vacio" role="status">Cargando catálogo…</p>
           ) : falloCarga ? (
             <p className="acceso__error" role="alert">{falloCarga}</p>
           ) : visibles.length === 0 ? (
-            <p className="mesa-vacia">No hay productos en esta vista.</p>
-          ) : (
-            <div className="tabla-wrap mesa-tabla">
-              <table className="tabla tabla--densa">
-                <thead>
-                  <tr>
-                    <Th campo="codigoProveedor" orden={orden} onOrdenar={ordenar}>Código</Th>
-                    <Th campo="nombre" orden={orden} onOrdenar={ordenar}>Producto</Th>
-                    <th>Descripción</th>
-                    <Th campo="presentacion" orden={orden} onOrdenar={ordenar}>Presentación</Th>
-                    <Th campo="monto" orden={orden} onOrdenar={ordenar}>Precio c/IVA</Th>
-                    <Th campo="fechaPrecio" orden={orden} onOrdenar={ordenar}>Fecha del precio</Th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibles.map((item, indice) => {
-                    const estado = estadoDe(item);
-                    return (
-                      <tr key={item.id} className={marcado === item.id ? "mesa-fila--lista" : ""}>
-                        <td className="mesa-codigo">{item.codigoProveedor}</td>
-                        <td id={indice === 0 ? "prov-ejemplo" : undefined}><strong className="tabla__producto">{item.nombre}</strong></td>
-                        <td className="mesa-caract" title={item.descripcion}>{item.descripcion}</td>
-                        <td>{item.presentacion}</td>
-                        <td className="tabla__precio">{formatearQuetzales(precioActual(item)?.monto)}</td>
-                        <td>{formatearFecha(precioActual(item)?.fechaPrecio)}</td>
-                        <td id={indice === 0 ? "prov-estado" : undefined}><Estado id={estado} /></td>
-                        <td>
-                          <div className="mesa-acciones" id={indice === 0 ? "prov-acciones" : undefined}>
-                            <button type="button" className="btn btn--linea btn--chico" onClick={() => setDetalle(item)}>
-                              Ver
-                            </button>
-                            <button type="button" className="btn btn--linea btn--chico" onClick={() => abrirEdicion(item)}>
-                              Editar
-                            </button>
-                            {estado !== "vigente" ? (
-                              <button type="button" id={indice === 0 ? "prov-confirmar" : undefined} className="btn btn--naranja btn--chico" onClick={() => confirmar(item)}>
-                                Confirmar
-                              </button>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="prov-vacio">
+              <Icono nombre="caja" />
+              <strong>No hay productos en esta vista</strong>
+              <span>Cambia el filtro o agrega un producto nuevo.</span>
             </div>
+          ) : (
+            <>
+              <p className="prov-conteo">
+                {visibles.length} {visibles.length === 1 ? "producto" : "productos"}
+                {corte !== "todas" ? ` · ${CORTES.find((c) => c.id === corte)?.titulo.toLowerCase()}` : ""}
+              </p>
+              <div className="prov-tabla-wrap">
+                <table className="prov-tabla">
+                  <thead>
+                    <tr>
+                      <Th campo="nombre" orden={orden} onOrdenar={ordenar}>Producto</Th>
+                      <Th campo="presentacion" orden={orden} onOrdenar={ordenar}>Presentación</Th>
+                      <Th campo="monto" orden={orden} onOrdenar={ordenar}>Precio c/IVA</Th>
+                      <Th campo="fechaPrecio" orden={orden} onOrdenar={ordenar}>Fecha del precio</Th>
+                      <th>Estado</th>
+                      <th><span className="sr-only">Acciones</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibles.map((item, indice) => {
+                      const estado = estadoDe(item);
+                      const actual = precioActual(item);
+                      return (
+                        <tr key={item.id} className={`prov-fila prov-fila--${estado}${marcado === item.id ? " es-marcada" : ""}`}>
+                          <td id={indice === 0 ? "prov-ejemplo" : undefined}>
+                            <div className="prov-producto">
+                              <span className="prov-producto__avatar" aria-hidden="true">
+                                {(item.nombre || "?").trim().charAt(0).toUpperCase()}
+                              </span>
+                              <span className="prov-producto__texto">
+                                <span className="prov-producto__codigo">{item.codigoProveedor}</span>
+                                <strong>{item.nombre}</strong>
+                                <span className="prov-producto__desc" title={item.descripcion}>{item.descripcion}</span>
+                              </span>
+                            </div>
+                          </td>
+                          <td data-etiqueta="Presentación">
+                            <span className="prov-pastilla">{item.presentacion || "—"}</span>
+                          </td>
+                          <td data-etiqueta="Precio c/IVA" className="prov-precio">
+                            {formatearQuetzales(actual?.monto)}
+                          </td>
+                          <td data-etiqueta="Fecha del precio">
+                            <span className="prov-fecha">
+                              {formatearFecha(actual?.fechaPrecio)}
+                              {actual?.vigenciaHasta ? <small>Vigente hasta {formatearFecha(actual.vigenciaHasta)}</small> : null}
+                            </span>
+                          </td>
+                          <td data-etiqueta="Estado" id={indice === 0 ? "prov-estado" : undefined}>
+                            <Estado id={estado} />
+                          </td>
+                          <td>
+                            <div className="prov-acciones" id={indice === 0 ? "prov-acciones" : undefined}>
+                              {estado !== "vigente" ? (
+                                <button type="button" id={indice === 0 ? "prov-confirmar" : undefined} className="prov-boton prov-boton--naranja" onClick={() => confirmar(item)} disabled={enviando}>
+                                  <Icono nombre="check" />
+                                  Confirmar
+                                </button>
+                              ) : null}
+                              <button type="button" className="prov-boton" onClick={() => setDetalle(item)}>
+                                <Icono nombre="ojo" />
+                                Ver
+                              </button>
+                              <button type="button" className="prov-boton" onClick={() => abrirEdicion(item)}>
+                                <Icono nombre="lapiz" />
+                                Editar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </Contenedor>
@@ -627,31 +690,22 @@ function Fila({ etiqueta, valor }) {
 function Th({ campo, orden, onOrdenar, children }) {
   const activa = orden.campo === campo;
   return (
-    <th>
-      <button
-        type="button"
-        onClick={() => onOrdenar(campo)}
-        style={{
-          border: 0,
-          background: "transparent",
-          padding: 0,
-          font: "inherit",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: activa ? "var(--azul)" : "#7a8798",
-          fontWeight: 700,
-          cursor: "pointer",
-        }}
-      >
-        {children} {activa ? (orden.direccion === "asc" ? "↑" : "↓") : ""}
+    <th aria-sort={activa ? (orden.direccion === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" className={`prov-th${activa ? " es-activa" : ""}`} onClick={() => onOrdenar(campo)}>
+        {children}
+        <span aria-hidden="true">{activa ? (orden.direccion === "asc" ? "↑" : "↓") : "↕"}</span>
       </button>
     </th>
   );
 }
 
 function Estado({ id }) {
-  const clase = id === "vigente" ? "chip--ok" : id === "por_confirmar" ? "chip--aviso" : "chip--neutro";
-  return <span className={`chip ${clase}`}>{etiquetaEstado(id)}</span>;
+  return (
+    <span className={`prov-estado prov-estado--${id}`}>
+      <i aria-hidden="true" />
+      {etiquetaEstado(id)}
+    </span>
+  );
 }
 
 function Ventana({ abierto, onCerrar, ancha = false, children }) {
@@ -667,7 +721,7 @@ function Ventana({ abierto, onCerrar, ancha = false, children }) {
   return (
     <dialog
       ref={dialogo}
-      className={ancha ? "dialogo-producto dialogo-producto--ficha" : "dialogo-producto"}
+      className={`dialogo-producto prov-dialogo${ancha ? " dialogo-producto--ficha" : ""}`}
       onClose={onCerrar}
       onClick={(evento) => {
         if (evento.target === dialogo.current) onCerrar();
