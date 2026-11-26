@@ -1,37 +1,40 @@
-import { COTIZACIONES_CASO, formatearQuetzales, PRECIO_REFERENCIA_CASO } from "../../data/precios";
 import { Etiqueta } from "../../components/ui/Etiqueta";
+import { tituloCategoria } from "../precios/tituloCategoria";
 
-export function GraficoCotizaciones() {
+export function GraficoCotizaciones({ resumen }) {
+  const categorias = resumen?.categorias || [];
+  const maximo = Math.max(1, ...categorias.map((fila) => Number(fila.n) || 0));
+  const principal = categorias[0];
+
   return (
     <article className="panel panel--caso revelar">
       <div className="panel__cab">
         <div>
-          <Etiqueta>Caso de la presentación</Etiqueta>
-          <h2>500 laptops para el MINEDUC</h2>
-          <p>Cinco cotizaciones. La línea naranja es el precio de referencia.</p>
+          <Etiqueta>Catálogo</Etiqueta>
+          <h2>Dónde hay más precios</h2>
+          <p>{categorias.length ? "Las cinco categorías con más renglones publicados." : "Sin categorías en la publicación."}</p>
         </div>
         <div className="dato-grande">
-          <span>Referencia</span>
-          <strong>{formatearQuetzales(PRECIO_REFERENCIA_CASO)}</strong>
+          <span>Principal</span>
+          <strong>{principal ? `${principal.porcentaje}%` : "—"}</strong>
         </div>
       </div>
       <div className="panel__graf">
-        <div
-          className="v-chart"
-          role="img"
-          aria-label={`Cotizaciones de Q4,200 a Q5,400. Referencia ${formatearQuetzales(PRECIO_REFERENCIA_CASO)}.`}
-        >
-          <span className="v-chart__ref" style={{ "--y": "72%" }} />
-          {COTIZACIONES_CASO.map((item) => (
-            <div className={`v-col${item.referencia ? " es-ref" : ""}`} key={item.proveedor}>
-              <b>{item.monto.toLocaleString("es-GT")}</b>
-              <div className="v-plot">
-                <i style={{ "--h": `${item.altura}%` }} />
-              </div>
-              <span>{item.proveedor}</span>
-            </div>
-          ))}
-        </div>
+        {categorias.length ? (
+          <ol className="ranking" aria-label="Categorías con más precios de referencia publicados.">
+            {categorias.map((fila) => (
+              <li key={fila.etiqueta}>
+                <span className="ranking__nombre" title={tituloCategoria(fila.etiqueta)}>{tituloCategoria(fila.etiqueta)}</span>
+                <span className="ranking__pista" aria-hidden="true">
+                  <i style={{ "--p": `${Math.max(8, (fila.n / maximo) * 100)}%` }} />
+                </span>
+                <b>{Number(fila.n).toLocaleString("es-GT")}</b>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="panel__vacio">{resumen?.cargando ? "Cargando la publicación…" : "Sin datos para graficar."}</p>
+        )}
       </div>
     </article>
   );

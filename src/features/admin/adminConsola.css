@@ -1,0 +1,871 @@
+.consola--admin {
+  --lado: 214px;
+  background:
+    radial-gradient(760px 220px at 0% -8%, rgba(33, 83, 161, 0.12), transparent 55%),
+    #f3f6fb;
+}
+
+.consola--admin .consola__contenido {
+  padding: 14px 18px 24px;
+  gap: 10px;
+}
+
+.consola--admin .consola__top {
+  min-height: 52px;
+  padding: 8px 16px;
+}
+
+.consola--admin .consola__lado {
+  padding: 12px 10px;
+}
+
+.consola__pie--admin {
+  gap: 8px 10px;
+  padding-top: 14px;
+  margin-top: auto;
+}
+
+.consola__pie--admin .consola__pie-cuenta strong {
+  display: block;
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.consola__pie--admin .consola__pie-acciones {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.consola__pie--admin .consola__pie-enlace,
+.consola__pie--admin .consola__pie-salir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 8px;
+  margin: 0;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.consola__pie--admin .consola__pie-enlace svg,
+.consola__pie--admin .consola__pie-salir svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  opacity: 0.92;
+}
+
+.consola__pie--admin .consola__pie-enlace {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  text-decoration: none;
+}
+
+.consola__pie--admin .consola__pie-enlace:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.consola__pie--admin .consola__pie-salir {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 22, 48, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.consola__pie--admin .consola__pie-salir:hover {
+  background: rgba(179, 38, 30, 0.28);
+  border-color: rgba(255, 160, 150, 0.35);
+  color: #fff;
+}
+
+.consola.es-plegada .consola__pie--admin .consola__pie-acciones {
+  grid-template-columns: 1fr;
+}
+
+.consola.es-plegada .consola__pie--admin .consola__pie-enlace span,
+.consola.es-plegada .consola__pie--admin .consola__pie-salir span {
+  display: none;
+}
+
+.consola--admin .consola__nav button {
+  padding: 7px 9px;
+  font-size: 0.88rem;
+}
+
+.consola__pagina--compacta {
+  padding: 0 2px;
+}
+
+.consola__pagina--compacta h1 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.consola__pagina--compacta p {
+  margin: 4px 0 0;
+  font-size: 0.86rem;
+}
+
+.consola__kpis--compactos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.consola__kpis--compactos .consola__kpi {
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(22, 59, 120, 0.05);
+}
+
+.consola__kpis--compactos .consola__kpi strong {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+}
+
+.consola__kpis--compactos .consola__kpi span {
+  font-size: 0.68rem;
+}
+
+.consola__fila {
+  display: grid;
+  grid-template-columns: 1.2fr 0.55fr;
+  gap: 8px;
+}
+
+.consola__panel--compacto {
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(22, 59, 120, 0.05);
+}
+
+.consola__panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--linea);
+}
+
+.consola__panel-top h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--azul-profundo);
+}
+
+.consola__barras {
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px 12px;
+  display: grid;
+  gap: 7px;
+}
+
+.consola__barras li {
+  display: grid;
+  grid-template-columns: 108px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.84rem;
+}
+
+.consola__barras i {
+  display: block;
+  height: 7px;
+  border-radius: 99px;
+  background: var(--azul-suave);
+  overflow: hidden;
+}
+
+.consola__barras i b {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--azul), var(--azul-medio));
+}
+
+.consola__kpi--revision.tiene-pendientes {
+  border-color: color-mix(in srgb, var(--naranja) 38%, white);
+  background: linear-gradient(180deg, #fffaf4 0%, #fff 72%);
+}
+
+.consola__kpi--revision.tiene-pendientes::before {
+  background: var(--naranja);
+}
+
+.consola__kpi--revision.tiene-pendientes strong {
+  color: var(--naranja-oscuro);
+}
+
+.consola__kpi-btn {
+  justify-self: start;
+  width: 100%;
+  margin-top: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+.consola--admin .consola__buscar svg {
+  left: 13px;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+
+.consola--admin .consola__buscar input {
+  padding: 8px 12px 8px 40px;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: #f8fafd;
+}
+
+.consola--admin .consola__kpi--revision.tiene-pendientes {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.consola__kpi-nota {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 550;
+  line-height: 1.3;
+}
+
+.consola__barra--compacta {
+  padding: 10px 12px;
+}
+
+.consola__meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.consola__formulario {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  max-width: 420px;
+}
+
+.consola__formulario label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.consola__formulario input,
+.consola__formulario select {
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.consola__lista-revision {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  margin: 0;
+  list-style: none;
+}
+
+.revision-tarjeta--compacta {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.revision-tarjeta__datos--compacta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+
+.revision-tarjeta__datos dt {
+  font-size: 0.64rem;
+}
+
+.revision-tarjeta__datos dd {
+  font-size: 0.84rem;
+}
+
+.persona--sm .persona__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 0.72rem;
+}
+
+.persona--sm strong {
+  font-size: 0.9rem;
+}
+
+.persona--sm small {
+  font-size: 0.78rem;
+}
+
+.btn--sm {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.82rem;
+}
+
+.chip--mini {
+  display: inline-block;
+  margin: 0 4px 0 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.tabla--mini th {
+  padding: 8px 10px;
+  font-size: 0.68rem;
+}
+
+.tabla--mini td {
+  padding: 9px 10px;
+  font-size: 0.84rem;
+}
+
+.consola__vacio--chico {
+  padding: 22px 14px;
+  font-size: 0.88rem;
+}
+
+.consola__exito {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.86rem;
+}
+
+.consola__alerta {
+  font-size: 0.86rem;
+  padding: 10px 12px;
+}
+
+.consola--admin .consola__panel {
+  border-radius: 14px;
+  border: 1px solid #dce5f2;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(22, 59, 120, 0.06);
+  overflow: hidden;
+}
+
+.consola--admin .consola__barra--filtros {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--linea);
+  background: linear-gradient(180deg, #fafcff, #fff);
+}
+
+.consola--admin .consola__barra--filtros .consola__buscar {
+  flex: 1 1 auto;
+}
+
+.consola__meta-pill {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #fff4e5;
+  color: #8a4b08;
+  font-size: 0.76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.consola__aviso {
+  margin: 0;
+  padding: 9px 12px;
+  font-size: 0.86rem;
+  font-weight: 650;
+  border-bottom: 1px solid var(--linea);
+}
+
+.consola__aviso--ok {
+  background: #edf7e6;
+  color: #3d6b12;
+}
+
+.consola__aviso--error {
+  background: #fff4f2;
+  color: #b3261e;
+}
+
+.tabla-wrap--plana {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.consola--admin .tabla--admin {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.consola--admin .tabla--admin thead th {
+  padding: 8px 12px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #627084;
+  background: #f6f9fd;
+  border-bottom: 1px solid var(--linea);
+}
+
+.consola--admin .tabla--admin tbody td {
+  padding: 10px 12px;
+  vertical-align: middle;
+  border-bottom: 1px solid #eef2f8;
+}
+
+.consola--admin .tabla--admin tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.consola--admin .tabla--admin tbody tr:hover {
+  background: #f8fbff;
+}
+
+.consola--admin .tabla--admin .tabla__accion {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.consola__acciones--fila {
+  display: inline-flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.celda-titulo {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.celda-sec {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-weight: 550;
+}
+
+.celda-vacia {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.84rem;
+}
+
+.celda-recurso {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.chip--ok {
+  background: #e8f4e6;
+  color: #3d6b12;
+}
+
+.chip--aviso {
+  background: #fff4f2;
+  color: #b3261e;
+}
+
+.chip--sesion {
+  background: var(--azul-suave);
+  color: var(--azul-profundo);
+}
+
+.chip--naranja {
+  background: #fff4e5;
+  color: #8a4b08;
+}
+
+.consola__invitacion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: 0;
+  align-items: stretch;
+}
+
+.consola__formulario {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px 18px;
+  max-width: none;
+  border-right: 1px solid var(--linea);
+}
+
+.consola__formulario-top h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.1rem;
+  color: var(--azul-profundo);
+}
+
+.consola__formulario-top p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.consola__formulario label {
+  display: grid;
+  gap: 5px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.consola__formulario input,
+.consola__formulario select {
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font: inherit;
+  background: #f8fafd;
+}
+
+.consola__formulario input:focus,
+.consola__formulario select:focus {
+  outline: 2px solid color-mix(in srgb, var(--azul) 28%, white);
+  background: #fff;
+}
+
+.consola__modo {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.consola__modo legend {
+  margin-bottom: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.consola__opcion {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 11px;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: #fafcff;
+  cursor: pointer;
+}
+
+.consola__opcion input {
+  margin-top: 3px;
+}
+
+.consola__opcion strong {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.consola__opcion small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 550;
+}
+
+.consola__formulario-pie {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 2px;
+}
+
+.consola__invitacion-ayuda {
+  padding: 16px 18px;
+  background: linear-gradient(180deg, #f7faff 0%, #fff 40%);
+}
+
+.consola__invitacion-ayuda h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: var(--azul-profundo);
+}
+
+.consola__invitacion-ayuda ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.consola__invitacion-ayuda li + li {
+  margin-top: 6px;
+}
+
+.consola__nota {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff4e5;
+  color: #8a4b08;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.consola--admin .consola__pager {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  background: #fafcff;
+}
+
+@keyframes consola-vista-entra {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes consola-kpi-entra {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes consola-panel-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes consola-fila-entra {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes consola-insignia-pulso {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.consola--admin .consola__main {
+  animation: consola-vista-entra 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.consola--admin .consola__escena {
+  display: grid;
+  gap: 10px;
+  animation: consola-vista-entra 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.consola--admin .consola__escena-cabecera {
+  animation: consola-panel-entra 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.consola--admin .consola__kpis--entrada .consola__kpi {
+  animation: consola-kpi-entra 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.consola--admin .consola__kpis--entrada .consola__kpi:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.consola--admin .consola__kpis--entrada .consola__kpi:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.consola--admin .consola__kpis--entrada .consola__kpi:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.consola--admin .consola__kpis--entrada .consola__kpi:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.consola--admin .consola__escena-panel {
+  animation: consola-panel-entra 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.08s;
+}
+
+.consola--admin .consola__escena-panel--2 {
+  animation-delay: 0.14s;
+}
+
+.consola--admin .consola__escena-panel--3 {
+  animation-delay: 0.2s;
+}
+
+.consola--admin .consola__nav button {
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease;
+}
+
+.consola--admin .consola__nav button:hover {
+  transform: translateX(3px);
+}
+
+.consola--admin .consola__nav button.es-activa {
+  box-shadow: inset 3px 0 0 var(--naranja), 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.consola--admin .consola__nav button:active {
+  transform: translateX(1px) scale(0.99);
+}
+
+.consola--admin .consola__nav button.es-activa b {
+  animation: consola-insignia-pulso 2.4s ease-in-out infinite;
+}
+
+.consola--admin .consola__kpi {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.consola--admin .consola__kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 26px rgba(22, 59, 120, 0.1);
+}
+
+.consola--admin .tabla--admin tbody tr {
+  animation: consola-fila-entra 0.35s ease both;
+}
+
+.consola--admin .tabla--admin tbody tr:nth-child(1) {
+  animation-delay: 0.04s;
+}
+
+.consola--admin .tabla--admin tbody tr:nth-child(2) {
+  animation-delay: 0.07s;
+}
+
+.consola--admin .tabla--admin tbody tr:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+.consola--admin .tabla--admin tbody tr:nth-child(4) {
+  animation-delay: 0.13s;
+}
+
+.consola--admin .tabla--admin tbody tr:nth-child(5) {
+  animation-delay: 0.16s;
+}
+
+.consola--admin .tabla--admin tbody tr:nth-child(n + 6) {
+  animation-delay: 0.18s;
+}
+
+.consola--admin .consola__panel,
+.consola--admin .revision-tarjeta--compacta {
+  transition: box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.consola--admin .consola__top {
+  transition: box-shadow 0.25s ease;
+}
+
+.consola--admin .consola__aviso {
+  animation: consola-panel-entra 0.32s ease both;
+}
+
+.consola--admin .consola__meta-pill {
+  animation: consola-insignia-pulso 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .consola--admin .consola__main,
+  .consola--admin .consola__escena,
+  .consola--admin .consola__escena-cabecera,
+  .consola--admin .consola__kpis--entrada .consola__kpi,
+  .consola--admin .consola__escena-panel,
+  .consola--admin .tabla--admin tbody tr,
+  .consola--admin .consola__aviso,
+  .consola--admin .consola__nav button.es-activa b,
+  .consola--admin .consola__meta-pill {
+    animation: none !important;
+  }
+
+  .consola--admin .consola__nav button:hover,
+  .consola--admin .consola__kpi:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .consola__kpis--compactos {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .consola__fila {
+    grid-template-columns: 1fr;
+  }
+
+  .consola__invitacion {
+    grid-template-columns: 1fr;
+  }
+
+  .consola__formulario {
+    border-right: 0;
+    border-bottom: 1px solid var(--linea);
+  }
+}

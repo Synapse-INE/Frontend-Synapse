@@ -31,7 +31,7 @@ function irA(y) {
   const html = document.documentElement;
   const anterior = html.style.scrollBehavior;
   html.style.scrollBehavior = "auto";
-  window.scrollTo(0, y);
+  window.scrollTo({ left: 0, top: y });
   html.style.scrollBehavior = anterior;
 }
 
@@ -86,6 +86,8 @@ export function usePersistirScroll() {
       rutaPrevia.current = ruta;
       irA(0);
       guardar(0);
+      document.documentElement.scrollLeft = 0;
+      document.body.scrollLeft = 0;
     }
     return undefined;
   }, [ruta]);
