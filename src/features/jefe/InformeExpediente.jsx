@@ -66,6 +66,13 @@ function imprimir(informe, detalle) {
     if (b.tipo === "dato") return `<p class="dato"><b>${escapar(b.clave)}:</b> ${escapar(b.valor)}</p>`;
     return `<p>${escapar(b.linea)}</p>`;
   }).join("");
+  const estadisticas = informe.estadisticas?.productos || [];
+  const tablaEstadisticas = estadisticas.length ? `
+    <section class="estadisticas">
+      <h2>Estadística de los precios comparables</h2>
+      <table><thead><tr><th>Producto</th><th>Comparables</th><th>Media</th><th>Mediana</th><th>Moda</th></tr></thead>
+      <tbody>${estadisticas.map((medida) => `<tr><td>${escapar(medida.nombre)}</td><td>${Number(medida.incluidos?.length || 0)}</td><td>${escapar(moneda(medida.media))}</td><td>${escapar(moneda(medida.mediana))}</td><td>${escapar(medida.moda ? moneda(medida.moda) : "—")}</td></tr>`).join("")}</tbody></table>
+    </section>` : "";
   const sello = informe.estado === "EMITIDO"
     ? `<p class="sello">Emitido el ${escapar(fecha(informe.emitidoEn))}</p>`
     : `<p class="sello borrador">Borrador · sin validez oficial</p>`;
@@ -81,9 +88,13 @@ function imprimir(informe, detalle) {
   p { margin: 0 0 8px; }
   .dato { margin: 0 0 2px; }
   .item { padding-left: 14px; }
+  .estadisticas { margin-top: 22px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th, td { padding: 8px; border: 1px solid #ccd6e6; text-align: left; vertical-align: top; }
+  th { background: #edf3fb; color: #163b78; }
   .sello { margin-top: 28px; padding-top: 10px; border-top: 1px solid #ccd6e6; color: #4f7a18; font-weight: 700; }
   .sello.borrador { color: #b45309; }
-</style></head><body>${cuerpo}${sello}</body></html>`);
+</style></head><body>${cuerpo}${tablaEstadisticas}${sello}</body></html>`);
   ventana.document.close();
   ventana.focus();
   window.setTimeout(() => ventana.print(), 300);
