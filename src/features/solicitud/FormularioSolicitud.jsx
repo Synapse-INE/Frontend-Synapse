@@ -122,7 +122,9 @@ export function FormularioSolicitud({ intro }) {
     try {
       setCreada(await crearYEnviarSolicitud(datos, archivos));
     } catch (fallo) {
-      const detalle = fallo instanceof ApiError ? fallo.errors?.[0]?.message || fallo.detail : "No se pudo enviar la solicitud.";
+      const detalle = fallo instanceof ApiError
+        ? fallo.errors?.[0]?.message || fallo.detail
+        : fallo?.message || "No se pudo enviar la solicitud.";
       setError(detalle);
     } finally {
       setEnviando(false);
