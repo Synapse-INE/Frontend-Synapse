@@ -4,7 +4,7 @@
   border: 1px solid var(--linea);
   border-radius: 14px;
   box-shadow: 0 16px 40px rgba(16, 32, 64, 0.18);
-  max-width: min(380px, calc(100vw - 32px));
+  max-width: min(380px, calc(100% - 32px));
   font-family: inherit;
 }
 
@@ -67,8 +67,34 @@
 .dpir-tour .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: #fff; }
 .dpir-tour .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: #fff; }
 
+.consola__titulo-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.sol-info__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sol-info__titulo h2 {
+  margin: 0;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.sol-info__titulo .mesa-tutorial {
+  flex: none;
+}
+
 @media (max-width: 720px) {
   .driver-popover.dpir-tour {
-    max-width: calc(100vw - 24px);
+    max-width: calc(100% - 24px);
   }
 }

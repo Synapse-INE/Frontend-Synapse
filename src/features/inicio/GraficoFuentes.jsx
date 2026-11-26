@@ -1,7 +1,15 @@
 import { Etiqueta } from "../../components/ui/Etiqueta";
 
-export function GraficoFuentes({ estadisticas }) {
-  const { metodos = [], principal, total = 0 } = estadisticas || {};
+function textoPorcentaje(fila) {
+  const valor = Number(fila?.porcentaje);
+  if (Number(fila?.n) > 0 && (!valor || valor < 1)) return valor ? `${valor}%` : "<1%";
+  return `${valor || 0}%`;
+}
+
+export function GraficoFuentes({ resumen }) {
+  const metodos = resumen?.metodos || [];
+  const principal = metodos[0];
+  const total = resumen?.total || 0;
 
   return (
     <article className="panel panel--dona revelar">
@@ -9,11 +17,11 @@ export function GraficoFuentes({ estadisticas }) {
         <div>
           <Etiqueta>Modalidad</Etiqueta>
           <h2>Cómo se compró</h2>
-          <p>{total ? "Modalidades de compra en esta consulta." : "Sin renglones en esta consulta."}</p>
+          <p>{total ? "Modalidad de compra de los precios publicados." : "Sin renglones publicados."}</p>
         </div>
         <div className="dato-grande dato-grande--lima">
           <span>{principal?.etiqueta ?? "Modalidad"}</span>
-          <strong>{principal ? `${principal.porcentaje}%` : "—"}</strong>
+          <strong>{principal ? textoPorcentaje(principal) : "—"}</strong>
         </div>
       </div>
       <div className="panel__graf">
@@ -24,7 +32,7 @@ export function GraficoFuentes({ estadisticas }) {
               {metodos.map((metodo, i) => (
                 <circle
                   key={metodo.clave}
-                  className={`dona-a dona-${["a", "b", "c"][i]}`}
+                  className={`dona-pub dona-pub--${["a", "b", "c"][i] || "c"}`}
                   cx="100"
                   cy="100"
                   r="72"
@@ -34,11 +42,8 @@ export function GraficoFuentes({ estadisticas }) {
                   }}
                 />
               ))}
-              <text x="100" y="96" className="dona-num">
-                {principal ? `${principal.porcentaje}%` : ""}
-              </text>
-              <text x="100" y="116" className="dona-sub">
-                {principal?.etiqueta ?? ""}
+              <text x="100" y="108" className="dona-num">
+                {principal ? `${textoPorcentaje(principal)}` : ""}
               </text>
             </svg>
             <ul className="leyenda">
@@ -47,13 +52,13 @@ export function GraficoFuentes({ estadisticas }) {
                   <i className={`sw ${metodo.clase}`} />
                   <span className="leyenda__full">{metodo.etiqueta}</span>
                   <span className="leyenda__corto">{metodo.corto}</span>
-                  <b>{metodo.porcentaje}%</b>
+                  <b>{textoPorcentaje(metodo)}</b>
                 </li>
               ))}
             </ul>
           </div>
         ) : (
-          <p className="panel__vacio">Sin datos para graficar.</p>
+          <p className="panel__vacio">{resumen?.cargando ? "Cargando la publicación…" : "Sin datos para graficar."}</p>
         )}
       </div>
     </article>

@@ -1,7 +1,4 @@
-import { useEffect } from "react";
-import { driver } from "driver.js";
-import "driver.js/dist/driver.css";
-import "./tourProveedor.css";
+import { crearTour } from "../../tours/tourBase";
 
 const CLAVE = "dpir.tour.proveedor";
 
@@ -137,76 +134,11 @@ const PASOS = [
   },
 ];
 
-let recorrido = null;
+const { runTour, useTourAuto } = crearTour({
+  clave: CLAVE,
+  pasos: PASOS,
+  selectoresListo: ["#prov-titulo", "#prov-agregar", "#prov-resumen", "#prov-herramientas"],
+});
 
-function visto() {
-  try {
-    return localStorage.getItem(CLAVE) === "1";
-  } catch {
-    return true;
-  }
-}
-
-function marcarVisto() {
-  try {
-    localStorage.setItem(CLAVE, "1");
-  } catch {
-    /* El navegador puede bloquear el almacenamiento. El recorrido igual se puede abrir con el botón. */
-  }
-}
-
-function pasosVisibles() {
-  return PASOS.filter((paso) => document.querySelector(paso.element));
-}
-
-export function runTourProveedor({ recordar = false } = {}) {
-  const steps = pasosVisibles();
-  if (!steps.length) return;
-  let alCerrar = recordar ? marcarVisto : null;
-  recorrido?.destroy();
-  const reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const tour = driver({
-    animate: !reducir,
-    smoothScroll: false,
-    showProgress: steps.length > 1,
-    progressText: "{{current}} de {{total}}",
-    nextBtnText: "Siguiente",
-    prevBtnText: "Atrás",
-    doneBtnText: "Entendido",
-    popoverClass: "dpir-tour",
-    overlayOpacity: 0.55,
-    stagePadding: 6,
-    stageRadius: 12,
-    onDestroyed: () => {
-      if (recorrido === tour) recorrido = null;
-      const cierre = alCerrar;
-      alCerrar = null;
-      cierre?.();
-    },
-    steps,
-  });
-  recorrido = tour;
-  document.querySelector(steps[0].element)?.scrollIntoView({ block: "center", behavior: "auto" });
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => tour.drive());
-  });
-}
-
-export function useTourProveedor() {
-  useEffect(() => {
-    if (visto()) return undefined;
-    let cancelado = false;
-    const id = window.setTimeout(() => {
-      if (cancelado || visto()) return;
-      const listo = ["#prov-titulo", "#prov-agregar", "#prov-resumen", "#prov-herramientas"].every((sel) =>
-        document.querySelector(sel)
-      );
-      if (!listo) return;
-      runTourProveedor({ recordar: true });
-    }, 500);
-    return () => {
-      cancelado = true;
-      window.clearTimeout(id);
-    };
-  }, []);
-}
+export const runTourProveedor = runTour;
+export const useTourProveedor = useTourAuto;

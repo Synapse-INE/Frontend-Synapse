@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { CLAVE_EJEMPLO, CUENTAS, ROLES, buscarCuenta } from "../../sesion/roles";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ROLES } from "../../sesion/roles";
 import { useSesion } from "../../sesion/Sesion";
+import { ApiError } from "../../servicios/api";
 import { AccesoMarco } from "./AccesoMarco";
 
 export function IngresoPage() {
   const { sesion, entrar } = useSesion();
   const navigate = useNavigate();
+  const ubicacion = useLocation();
   const [correo, setCorreo] = useState("");
   const [clave, setClave] = useState("");
   const [visible, setVisible] = useState(false);
@@ -18,16 +20,27 @@ export function IngresoPage() {
     if (sesion) navigate(ROLES[sesion.rol]?.destino || "/cuenta", { replace: true });
   }, [sesion, navigate]);
 
-  function ingresar(evento) {
+  useEffect(() => {
+    if (ubicacion.state?.aviso) {
+      setAviso(ubicacion.state.aviso);
+      navigate(ubicacion.pathname, { replace: true, state: null });
+    }
+  }, [ubicacion, navigate]);
+
+  async function ingresar(evento) {
     evento.preventDefault();
     setError("");
-    const cuenta = buscarCuenta(correo, clave);
-    if (!cuenta) {
-      setError("El correo o la contraseña no coinciden con una cuenta del portal.");
-      return;
+    setAviso("");
+    try {
+      const cuenta = await entrar(correo, clave);
+      navigate(ROLES[cuenta.rol]?.destino || "/cuenta");
+    } catch (fallo) {
+      if (fallo instanceof ApiError && fallo.code === "CUENTA_PENDIENTE_APROBACION") {
+        setAviso(fallo.detail);
+        return;
+      }
+      setError(fallo instanceof ApiError ? fallo.detail : "No se pudo iniciar la sesión.");
     }
-    entrar(cuenta);
-    navigate(ROLES[cuenta.rol].destino);
   }
 
   function enviarRecuperacion(evento) {
@@ -84,7 +97,7 @@ export function IngresoPage() {
           </label>
         )}
         {error ? <p className="acceso__error" role="alert">{error}</p> : null}
-        {aviso ? <p className="acceso__ok" role="status">{aviso}</p> : null}
+        {aviso ? <p className={recuperar ? "acceso__ok" : "acceso__espera"} role="status">{aviso}</p> : null}
         <button type="submit" className="btn btn--naranja btn--bloque">{recuperar ? "Enviar enlace" : "Ingresar"}</button>
       </form>
 
@@ -95,7 +108,7 @@ export function IngresoPage() {
         ¿Aún no hay cuenta? <Link to="/registro">Registrarse</Link>
       </p>
       <p className="acceso__nota">
-        Cuentas de ejemplo: {CUENTAS.map((item) => item.correo).join(", ")}. Contraseña temporal: {CLAVE_EJEMPLO}.
+        La cuenta entra cuando el correo está verificado y un administrador del INE la aprobó.
       </p>
     </AccesoMarco>
   );

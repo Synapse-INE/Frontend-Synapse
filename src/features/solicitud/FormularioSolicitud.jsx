@@ -1,218 +1,284 @@
-import { useRef, useState } from "react";
-import { MODALIDADES } from "../../data/precios";
-import { guardarSolicitud, leerSolicitudes, numeroSeguimiento } from "../../data/solicitudes";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Boton } from "../../components/ui/Boton";
-import { Turnstile } from "./Turnstile";
-import { MAX_ARCHIVOS, MAX_DESCRIPCION, TEXTO_TIPOS, validarArchivo } from "./solicitudApi";
+import { useSesion } from "../../sesion/Sesion";
+import { ApiError } from "../../servicios/api";
+import { AdjuntosPdf } from "./AdjuntosPdf";
+import { crearYEnviarSolicitud } from "./solicitudApi";
+import "./solicitudForm.css";
+import { useTourSolicitud } from "../../tours/tourSolicitud";
 
-const LINEA = { nombre: "", codigoSiges: "", unidadMedida: "Unidad", cantidad: "" };
+const MODALIDADES = [
+  { valor: "CONTRATO_ABIERTO", etiqueta: "Contrato abierto" },
+  { valor: "SUBASTA_ELECTRONICA_INVERSA", etiqueta: "Subasta electrónica inversa" },
+  { valor: "BIENES_SUMINISTROS_IMPORTADOS", etiqueta: "Bienes y suministros importados" },
+];
 
-function formatoTamano(bytes) {
-  return bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+const EJEMPLOS_TITULO = [
+  "Equipamiento de cómputo para aulas",
+  "Insumos de oficina — año fiscal",
+  "Mobiliario escolar",
+];
+
+const UNIDADES_COMUNES = [
+  "unidad",
+  "caja",
+  "paquete",
+  "juego",
+  "litro",
+  "kilogramo",
+  "metro",
+  "servicio",
+];
+
+const PRODUCTO_VACIO = { nombre: "", especificacionesTecnicas: "", unidadMedida: "unidad", cantidad: "1" };
+
+function hoy() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-export function FormularioSolicitud({ institucionInicial = "", creadaPorId }) {
-  const inputArchivo = useRef(null);
-  const [datos, setDatos] = useState({
-    institucion: institucionInicial,
+function inicial(perfil = {}) {
+  return {
     titulo: "",
-    modalidad: MODALIDADES[0],
     descripcion: "",
-  });
-  const [productos, setProductos] = useState([{ ...LINEA }]);
-  const [adjuntos, setAdjuntos] = useState([]);
-  const [errores, setErrores] = useState({});
-  const [errorArchivos, setErrorArchivos] = useState("");
-  const [errorGeneral, setErrorGeneral] = useState("");
-  const [token, setToken] = useState(null);
-  const [reiniciarTurnstile, setReiniciarTurnstile] = useState(0);
-  const [arrastrando, setArrastrando] = useState(false);
+    modalidad: "CONTRATO_ABIERTO",
+    unidadEjecutora: perfil.institucion || "",
+    fechaFormulario: hoy(),
+    enlaceNombre: perfil.nombre || "",
+    enlaceCargo: "",
+    autoridadNombre: "",
+    autoridadCargo: "",
+    productos: [{ ...PRODUCTO_VACIO }],
+  };
+}
+
+export function FormularioSolicitud({ intro }) {
+  const { sesion } = useSesion();
+  const [datos, setDatos] = useState(() => inicial(sesion || {}));
   const [enviando, setEnviando] = useState(false);
-  const [seguimiento, setSeguimiento] = useState(null);
+  const [error, setError] = useState("");
+  const [creada, setCreada] = useState(null);
+  const [archivos, setArchivos] = useState([]);
+  useTourSolicitud();
+
+  useEffect(() => {
+    if (!sesion) return;
+    setDatos((previo) => ({
+      ...previo,
+      enlaceNombre: previo.enlaceNombre || sesion.nombre || "",
+      unidadEjecutora: previo.unidadEjecutora || sesion.institucion || "",
+    }));
+  }, [sesion]);
 
   function cambiar(evento) {
     const { name, value } = evento.target;
-    setDatos((prev) => ({ ...prev, [name]: value }));
-    if (errores[name]) setErrores((prev) => ({ ...prev, [name]: undefined }));
+    setDatos((previo) => ({ ...previo, [name]: value }));
   }
 
   function cambiarProducto(indice, campo, valor) {
-    setProductos((prev) => prev.map((item, i) => (i === indice ? { ...item, [campo]: valor } : item)));
+    setDatos((previo) => ({
+      ...previo,
+      productos: previo.productos.map((item, posicion) => (
+        posicion === indice ? { ...item, [campo]: valor } : item
+      )),
+    }));
   }
 
-  function agregarArchivos(lista) {
-    const problemas = [];
-    const validos = [];
-    Array.from(lista).forEach((archivo) => {
-      const motivo = validarArchivo(archivo);
-      if (motivo) problemas.push(motivo);
-      else validos.push(archivo);
-    });
-    const combinados = [...adjuntos, ...validos];
-    if (combinados.length > MAX_ARCHIVOS) problemas.push(`Máximo ${MAX_ARCHIVOS} archivos por solicitud.`);
-    setErrorArchivos(problemas.join(" "));
-    setAdjuntos(combinados.slice(0, MAX_ARCHIVOS));
+  function completarEnlace() {
+    if (!sesion) return;
+    setDatos((previo) => ({
+      ...previo,
+      enlaceNombre: sesion.nombre || previo.enlaceNombre,
+      unidadEjecutora: previo.unidadEjecutora || sesion.institucion || "",
+    }));
   }
 
-  function quitarArchivo(indice) {
-    setErrorArchivos("");
-    setAdjuntos((prev) => prev.filter((_, i) => i !== indice));
+  function duplicarProducto(indice) {
+    const base = datos.productos[indice];
+    if (!base) return;
+    setDatos((previo) => ({
+      ...previo,
+      productos: [
+        ...previo.productos,
+        {
+          nombre: base.nombre,
+          especificacionesTecnicas: base.especificacionesTecnicas,
+          unidadMedida: base.unidadMedida,
+          cantidad: base.cantidad,
+        },
+      ],
+    }));
   }
 
   async function enviar(evento) {
     evento.preventDefault();
-    setErrorGeneral("");
-    const e = {};
-    if (datos.institucion.trim().length < 2) e.institucion = "Indica el nombre de la institución.";
-    if (datos.titulo.trim().length < 5) e.titulo = "Describe el pedido con al menos 5 caracteres.";
-    if (datos.descripcion.trim().length < 20) e.descripcion = "Describe lo que necesitas con al menos 20 caracteres.";
-    if (!productos.some((item) => item.nombre.trim().length >= 3)) e.productos = "Agrega al menos un producto con nombre.";
-    setErrores(e);
-    if (Object.keys(e).length) return;
-    if (!token) {
-      setErrorGeneral("Completa la verificación de seguridad antes de enviar.");
+    setError("");
+    const pesado = archivos.find((archivo) => archivo.size > 10 * 1024 * 1024 || !archivo.name.toLowerCase().endsWith(".pdf"));
+    if (pesado) {
+      setError("Cada anexo tiene que ser un PDF de hasta 10 MB.");
       return;
     }
     setEnviando(true);
-    const lineas = productos
-      .filter((item) => item.nombre.trim())
-      .map((item, indice) => ({
-        numero: indice + 1,
-        nombre: item.nombre.trim(),
-        codigoSiges: item.codigoSiges.trim() || null,
-        unidadMedida: item.unidadMedida.trim() || null,
-        cantidad: item.cantidad === "" ? null : Number(item.cantidad),
-      }));
-    const id = `sol-${Date.now()}`;
-    const solicitud = {
-      id,
-      titulo: datos.titulo.trim(),
-      institucionSolicitante: datos.institucion.trim(),
-      descripcion: datos.descripcion.trim(),
-      modalidad: datos.modalidad,
-      estado: "recibida",
-      creadaPorId,
-      createdAt: new Date().toISOString(),
-      numeroSeguimiento: numeroSeguimiento(leerSolicitudes().length + 1),
-      productos: lineas,
-      adjuntos: adjuntos.map((archivo) => ({
-        nombreOriginal: archivo.name,
-        mimeVerificado: archivo.type,
-        tamanoBytes: archivo.size,
-      })),
-    };
-    guardarSolicitud(solicitud);
-    setSeguimiento(solicitud.numeroSeguimiento);
-    setEnviando(false);
-    setReiniciarTurnstile((n) => n + 1);
+    try {
+      setCreada(await crearYEnviarSolicitud(datos, archivos));
+    } catch (fallo) {
+      const detalle = fallo instanceof ApiError ? fallo.errors?.[0]?.message || fallo.detail : "No se pudo enviar la solicitud.";
+      setError(detalle);
+    } finally {
+      setEnviando(false);
+    }
   }
 
-  function nuevaSolicitud() {
-    setDatos({ institucion: institucionInicial, titulo: "", modalidad: MODALIDADES[0], descripcion: "" });
-    setProductos([{ ...LINEA }]);
-    setAdjuntos([]);
-    setErrores({});
-    setErrorArchivos("");
-    setErrorGeneral("");
-    setToken(null);
-    setSeguimiento(null);
-  }
-
-  if (seguimiento) {
+  if (creada) {
     return (
-      <div className="formulario formulario__confirmacion" role="status">
-        <h3>✓ Solicitud recibida</h3>
-        <p>Guarda tu número de seguimiento para consultar el estado:</p>
-        <p className="formulario__seguimiento" aria-label={`Número de seguimiento ${seguimiento}`}>{seguimiento}</p>
-        <p className="formulario__ayuda">El personal del INE la revisará y se pondrá en contacto contigo.</p>
-        <Boton variante="azul" bloque onClick={nuevaSolicitud}>Enviar otra solicitud</Boton>
-      </div>
+      <>
+        {intro}
+        <p role="status">La solicitud {creada.codigo} quedó recibida. El INE la verá en su bandeja.</p>
+        <Link className="btn btn--naranja" to="/cuenta">Ver mis solicitudes</Link>
+      </>
     );
   }
 
   return (
-    <form className="formulario" onSubmit={enviar} noValidate>
-      <label>
-        Institución
-        <input type="text" name="institucion" value={datos.institucion} onChange={cambiar} placeholder="Ministerio, municipalidad o entidad" autoComplete="organization" aria-invalid={!!errores.institucion} />
-        {errores.institucion && <span role="alert" className="formulario__error">⚠ {errores.institucion}</span>}
-      </label>
-      <label>
-        Título de la solicitud
-        <input type="text" name="titulo" value={datos.titulo} onChange={cambiar} placeholder="Ej. 500 laptops para escuelas" aria-invalid={!!errores.titulo} />
-        {errores.titulo && <span role="alert" className="formulario__error">⚠ {errores.titulo}</span>}
-      </label>
-      <label>
-        Modalidad
-        <select name="modalidad" value={datos.modalidad} onChange={cambiar}>
-          {MODALIDADES.map((opcion) => <option key={opcion}>{opcion}</option>)}
-        </select>
-      </label>
-      <fieldset className="formulario__productos">
-        <legend>Productos</legend>
-        {productos.map((item, indice) => (
-          <div className="formulario__producto" key={indice}>
-            <label>
-              Nombre
-              <input value={item.nombre} onChange={(evento) => cambiarProducto(indice, "nombre", evento.target.value)} placeholder="Bien o servicio" />
+    <>
+      {intro}
+      <form className="sol-form" onSubmit={enviar}>
+        <section className="sol-bloque" id="sol-bloque-expediente">
+          <div className="paso"><b>1</b>Datos del expediente</div>
+          {sesion ? (
+            <div className="sol-acciones-rapidas">
+              <button type="button" className="btn btn--linea btn--chico" onClick={completarEnlace}>
+                Usar mi nombre e institución en el enlace
+              </button>
+            </div>
+          ) : null}
+
+          <div className="sol-mosaico">
+            <label className="sol-campo sol-campo--12">
+              Título
+              <input name="titulo" value={datos.titulo} onChange={cambiar} minLength={3} maxLength={200} required placeholder="Ej. 500 laptops para escuelas" />
+              <div className="sol-ayudas" aria-label="Ejemplos de título">
+                <em>Ejemplos:</em>
+                {EJEMPLOS_TITULO.map((texto) => (
+                  <button key={texto} type="button" className="ejemplo" onClick={() => setDatos((previo) => ({ ...previo, titulo: texto }))}>
+                    {texto}
+                  </button>
+                ))}
+              </div>
             </label>
-            <label>
-              Código SIGES
-              <input value={item.codigoSiges} onChange={(evento) => cambiarProducto(indice, "codigoSiges", evento.target.value)} placeholder="Opcional" />
+
+            <label className="sol-campo sol-campo--12 sol-campo--desc">
+              Descripción
+              <textarea name="descripcion" rows={3} maxLength={10000} value={datos.descripcion} onChange={cambiar} required placeholder="Qué se necesita y con qué características" />
             </label>
-            <label>
-              Unidad
-              <input value={item.unidadMedida} onChange={(evento) => cambiarProducto(indice, "unidadMedida", evento.target.value)} />
+
+            <label className="sol-campo sol-campo--4">
+              Modalidad
+              <select name="modalidad" value={datos.modalidad} onChange={cambiar}>
+                {MODALIDADES.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}
+              </select>
             </label>
-            <label>
-              Cantidad
-              <input type="number" min="0" step="0.001" value={item.cantidad} onChange={(evento) => cambiarProducto(indice, "cantidad", evento.target.value)} />
+            <label className="sol-campo sol-campo--4">
+              Unidad ejecutora
+              <input name="unidadEjecutora" value={datos.unidadEjecutora} onChange={cambiar} maxLength={200} required list="sol-unidades-inst" placeholder="Dependencia que ejecuta la compra" />
             </label>
-            {productos.length > 1 ? (
-              <button type="button" className="btn btn--linea btn--chico" onClick={() => setProductos((prev) => prev.filter((_, i) => i !== indice))}>Quitar</button>
-            ) : null}
+            <label className="sol-campo sol-campo--4">
+              Fecha del formulario
+              <input name="fechaFormulario" type="date" value={datos.fechaFormulario} onChange={cambiar} required />
+            </label>
+
+            <label className="sol-campo sol-campo--6">
+              Enlace
+              <input name="enlaceNombre" value={datos.enlaceNombre} onChange={cambiar} maxLength={200} required placeholder="Nombre de quien da seguimiento" />
+            </label>
+            <label className="sol-campo sol-campo--6">
+              Cargo del enlace
+              <input name="enlaceCargo" value={datos.enlaceCargo} onChange={cambiar} maxLength={150} required placeholder="Ej. Jefe de compras" />
+            </label>
+            <label className="sol-campo sol-campo--6">
+              Autoridad
+              <input name="autoridadNombre" value={datos.autoridadNombre} onChange={cambiar} maxLength={200} required placeholder="Máxima autoridad firmante" />
+            </label>
+            <label className="sol-campo sol-campo--6">
+              Cargo de la autoridad
+              <input name="autoridadCargo" value={datos.autoridadCargo} onChange={cambiar} maxLength={150} required placeholder="Ej. Director general" />
+            </label>
           </div>
-        ))}
-        <button type="button" className="btn btn--linea btn--chico" onClick={() => setProductos((prev) => [...prev, { ...LINEA }])}>Agregar producto</button>
-        {errores.productos && <span role="alert" className="formulario__error">⚠ {errores.productos}</span>}
-      </fieldset>
-      <label>
-        Descripción de lo que necesitas
-        <textarea name="descripcion" rows={5} maxLength={MAX_DESCRIPCION} value={datos.descripcion} onChange={cambiar} placeholder="Incluye características (memoria, capacidad, medidas, etc.)" aria-invalid={!!errores.descripcion} />
-        <span className="formulario__contador" aria-live="polite">{datos.descripcion.length}/{MAX_DESCRIPCION}</span>
-        {errores.descripcion && <span role="alert" className="formulario__error">⚠ {errores.descripcion}</span>}
-      </label>
-      <div>
-        <span className="formulario__titulo-campo">Archivos adjuntos (opcional)</span>
-        <div
-          className={`formulario__zona${arrastrando ? " formulario__zona--activa" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setArrastrando(true); }}
-          onDragLeave={() => setArrastrando(false)}
-          onDrop={(evento) => { evento.preventDefault(); setArrastrando(false); if (evento.dataTransfer.files.length) agregarArchivos(evento.dataTransfer.files); }}
-        >
-          <p>Arrastra tus archivos aquí o</p>
-          <Boton variante="azul" onClick={() => inputArchivo.current?.click()}>Seleccionar archivos</Boton>
-          <input ref={inputArchivo} type="file" multiple hidden accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" onChange={(e) => { if (e.target.files) agregarArchivos(e.target.files); e.target.value = ""; }} />
-          <p className="formulario__ayuda">{TEXTO_TIPOS}. Máximo {MAX_ARCHIVOS} archivos de 10 MB cada uno.</p>
-        </div>
-        {errorArchivos && <p role="alert" className="formulario__error">⚠ {errorArchivos}</p>}
-        {adjuntos.length > 0 && (
-          <ul className="formulario__archivos">
-            {adjuntos.map((archivo, i) => (
-              <li key={`${archivo.name}-${i}`}>
-                <span>{archivo.name} <small>({formatoTamano(archivo.size)})</small></span>
-                <button type="button" onClick={() => quitarArchivo(i)} aria-label={`Quitar ${archivo.name}`}>Quitar</button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <Turnstile onToken={setToken} reiniciar={reiniciarTurnstile} />
-      {errorGeneral && <p role="alert" className="formulario__error formulario__error--general">⚠ {errorGeneral}</p>}
-      <Boton type="submit" variante="naranja" bloque disabled={enviando}>{enviando ? "Enviando…" : "Enviar solicitud"}</Boton>
-      <p className="formulario__ayuda">El envío formal sigue el oficio institucional y los reglamentos del INE.</p>
-    </form>
+        </section>
+
+        <datalist id="sol-unidades-inst">
+          {sesion?.institucion ? <option value={sesion.institucion} /> : null}
+        </datalist>
+        <datalist id="sol-unidades-medida">
+          {UNIDADES_COMUNES.map((unidad) => <option key={unidad} value={unidad} />)}
+        </datalist>
+
+        <section className="sol-bloque" id="sol-bloque-productos">
+          <div className="paso paso--sep"><b>2</b>Productos</div>
+          {datos.productos.map((producto, indice) => (
+            <fieldset key={indice} className="sol-producto">
+              <legend>Producto {indice + 1}</legend>
+              <div className="sol-producto__rejilla">
+                <label className="sol-campo sol-campo--12">
+                  Nombre
+                  <input value={producto.nombre} onChange={(evento) => cambiarProducto(indice, "nombre", evento.target.value)} maxLength={240} required placeholder="Nombre del bien o servicio" />
+                </label>
+                <label className="sol-campo sol-campo--12">
+                  Especificaciones
+                  <textarea rows={2} value={producto.especificacionesTecnicas} onChange={(evento) => cambiarProducto(indice, "especificacionesTecnicas", evento.target.value)} required placeholder="Marca, medidas, normas técnicas…" />
+                </label>
+                <label className="sol-campo sol-campo--6">
+                  Unidad
+                  <input value={producto.unidadMedida} onChange={(evento) => cambiarProducto(indice, "unidadMedida", evento.target.value)} maxLength={80} required list="sol-unidades-medida" />
+                </label>
+                <label className="sol-campo sol-campo--6">
+                  Cantidad
+                  <input value={producto.cantidad} onChange={(evento) => cambiarProducto(indice, "cantidad", evento.target.value)} inputMode="decimal" required />
+                </label>
+              </div>
+              <div className="sol-acciones-rapidas">
+                {datos.productos.length > 1 ? (
+                  <button type="button" className="btn btn--linea btn--chico" onClick={() => setDatos((previo) => ({
+                    ...previo,
+                    productos: previo.productos.filter((_, posicion) => posicion !== indice),
+                  }))}
+                  >
+                    Quitar producto
+                  </button>
+                ) : null}
+                <button type="button" className="btn btn--linea btn--chico" onClick={() => duplicarProducto(indice)}>
+                  Duplicar este producto
+                </button>
+              </div>
+            </fieldset>
+          ))}
+          <button type="button" className="btn btn--linea" onClick={() => setDatos((previo) => ({
+            ...previo,
+            productos: [...previo.productos, { ...PRODUCTO_VACIO }],
+          }))}
+          >
+            Agregar producto
+          </button>
+        </section>
+
+        <section className="sol-bloque sol-bloque--pie" id="sol-bloque-anexos">
+          <div className="paso paso--sep"><b>3</b>Anexos <span className="formulario__opcional">(opcional)</span></div>
+          <AdjuntosPdf archivos={archivos} onChange={setArchivos} multiple />
+          <p>Opcional. Al enviar, estos PDF quedan fijos y ya no se pueden quitar.</p>
+
+          {error ? <p role="alert" className="formulario__error formulario__error--general">⚠ {error}</p> : null}
+          <div className="sol-pie">
+            <div className="sol-acciones">
+              <Boton id="sol-enviar" type="submit" variante="naranja" className="btn-enviar" disabled={enviando}>
+                {enviando ? "Enviando…" : "Enviar solicitud"}
+              </Boton>
+            </div>
+          </div>
+          <p className="formulario__confianza">
+            La solicitud queda ligada a la institución de esta cuenta. El PDF se adjunta antes de enviarla.
+          </p>
+        </section>
+      </form>
+    </>
   );
 }

@@ -3,9 +3,11 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import logoIne from "../../assets/logo-ine.png";
 import { inicialesDe, ROLES } from "../../sesion/roles";
 import { useSesion } from "../../sesion/Sesion";
+import { AccionSolicitar } from "../../features/solicitud/AvisoCuentaSolicitud";
+import { Campana } from "./Campana";
 
 export function Barra() {
-  const { sesion, salir } = useSesion();
+  const { sesion, cargando, salir } = useSesion();
   const navigate = useNavigate();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [submenuAbierto, setSubmenuAbierto] = useState(false);
@@ -47,8 +49,8 @@ export function Barra() {
     setCuentaAbierta(false);
   }
 
-  function cerrarSesion() {
-    salir();
+  async function cerrarSesion() {
+    await salir();
     cerrar();
     navigate("/");
   }
@@ -84,7 +86,7 @@ export function Barra() {
                 <Link to="/lista" onClick={cerrar}>Lista de precios</Link>
               </li>
               <li>
-                <Link to="/solicitud" onClick={cerrar}>Solicitud de precios</Link>
+                <AccionSolicitar onIr={cerrar}>Solicitud de precios</AccionSolicitar>
               </li>
             </ul>
           </li>
@@ -105,7 +107,10 @@ export function Barra() {
         </Link>
 
         <div className="barra__acciones">
-          {sesion ? (
+          {cargando || !sesion ? null : (
+            <Campana rol={sesion.rol} onAbrir={() => setCuentaAbierta(false)} />
+          )}
+          {cargando ? null : sesion ? (
             <div className="barra__cuenta-caja" ref={cuentaRef}>
               <button
                 type="button"
@@ -129,6 +134,7 @@ export function Barra() {
                   <Link to={rol.destino} onClick={cerrar}>Mi espacio</Link>
                   {sesion.rol === "solicitante" && sesion.estadoRevision === "aprobado" ? <Link to="/solicitud" onClick={cerrar}>Nueva solicitud</Link> : null}
                   {sesion.rol === "proveedor" ? <Link to="/proveedor" onClick={cerrar}>Mis productos</Link> : null}
+                  {sesion.rol === "jefe" || sesion.rol === "trabajador" || sesion.rol === "admin" ? <Link to="/personal" onClick={cerrar}>Bandeja</Link> : null}
                   <button type="button" onClick={cerrarSesion}>Cerrar sesión</button>
                 </div>
               ) : null}

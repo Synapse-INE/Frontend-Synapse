@@ -1,14 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import { ROLES, cuentasDisponibles, guardarCuenta } from "../../sesion/roles";
+import { Etiqueta } from "../../components/ui/Etiqueta";
+import { ROLES } from "../../sesion/roles";
 import { useSesion } from "../../sesion/Sesion";
+import { ApiError } from "../../servicios/api";
+import { registrarSolicitante } from "../../servicios/sesionApi";
 import { AccesoMarco } from "./AccesoMarco";
 
 export function RegistroPage() {
-  const { sesion, entrar } = useSesion();
+  const { sesion } = useSesion();
   const navigate = useNavigate();
-  const [datos, setDatos] = useState({ nombre: "", correo: "", institucion: "", cargo: "", clave: "", confirmar: "" });
+  const [datos, setDatos] = useState({ nombre: "", correo: "", institucion: "", nit: "", cargo: "", clave: "", confirmar: "" });
   const [visible, setVisible] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [confirmado, setConfirmado] = useState(false);
   const [errores, setErrores] = useState({});
 
   useEffect(() => {
@@ -21,35 +27,30 @@ export function RegistroPage() {
     setErrores((prev) => ({ ...prev, [name]: "" }));
   }
 
-  function guardar(evento) {
+  async function guardar(evento) {
     evento.preventDefault();
     const fallos = {};
     if (datos.nombre.trim().length < 3) fallos.nombre = "Escribe el nombre de la persona.";
     if (datos.institucion.trim().length < 3) fallos.institucion = "Escribe el nombre oficial de la institución.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.correo.trim())) fallos.correo = "Escribe un correo válido.";
-    if (cuentasDisponibles().some((item) => item.correo.toLowerCase() === datos.correo.trim().toLowerCase())) {
-      fallos.correo = "Ese correo ya tiene una cuenta. Se ingresa con él.";
-    }
-    if (datos.clave.length < 8) fallos.clave = "La contraseña necesita al menos 8 caracteres.";
+    if (datos.clave.length < 12) fallos.clave = "La contraseña necesita al menos 12 caracteres.";
     if (datos.clave !== datos.confirmar) fallos.confirmar = "La confirmación no coincide con la contraseña.";
     setErrores(fallos);
     if (Object.keys(fallos).length) return;
-    const cuenta = {
-      id: `u-${Date.now()}`,
-      nombre: datos.nombre.trim(),
-      correo: datos.correo.trim(),
-      roles: ["solicitante"],
-      clave: datos.clave,
-      estado: "activo",
-      perfil: {
-        institucion: datos.institucion.trim(),
-        cargo: datos.cargo.trim(),
-        estadoRevision: "pendiente",
-      },
-    };
-    guardarCuenta(cuenta);
-    entrar(cuenta);
-    navigate(ROLES.solicitante.destino);
+    setEnviando(true);
+    try {
+      await registrarSolicitante(datos);
+      setConfirmado(true);
+    } catch (fallo) {
+      const campo = fallo instanceof ApiError ? fallo.errors?.[0]?.field : "";
+      if (campo && campo in datos) {
+        setErrores({ [campo === "email" ? "correo" : campo]: fallo.errors[0].message });
+      } else {
+        setErrores({ general: fallo instanceof ApiError ? fallo.detail : "No se pudo registrar la cuenta." });
+      }
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
@@ -77,6 +78,10 @@ export function RegistroPage() {
           <input name="cargo" value={datos.cargo} onChange={cambiar} placeholder="Cargo en la institución, si aplica" />
         </label>
         <label>
+          NIT
+          <input name="nit" value={datos.nit} onChange={cambiar} placeholder="NIT de la institución, si aplica" />
+        </label>
+        <label>
           Correo
           <input name="correo" type="email" autoComplete="email" value={datos.correo} onChange={cambiar} aria-invalid={Boolean(errores.correo)} placeholder="nombre@institucion.gob.gt" />
           {errores.correo ? <span className="formulario__error" role="alert">{errores.correo}</span> : null}
@@ -84,7 +89,7 @@ export function RegistroPage() {
         <label>
           Contraseña
           <span className="acceso__clave">
-            <input name="clave" type={visible ? "text" : "password"} autoComplete="new-password" value={datos.clave} onChange={cambiar} aria-invalid={Boolean(errores.clave)} placeholder="Mínimo 8 caracteres" />
+            <input name="clave" type={visible ? "text" : "password"} autoComplete="new-password" value={datos.clave} onChange={cambiar} aria-invalid={Boolean(errores.clave)} placeholder="Mínimo 12 caracteres" />
             <button type="button" onClick={() => setVisible((valor) => !valor)}>{visible ? "Ocultar" : "Ver"}</button>
           </span>
           {errores.clave ? <span className="formulario__error" role="alert">{errores.clave}</span> : null}
@@ -94,12 +99,62 @@ export function RegistroPage() {
           <input name="confirmar" type={visible ? "text" : "password"} autoComplete="new-password" value={datos.confirmar} onChange={cambiar} aria-invalid={Boolean(errores.confirmar)} placeholder="Repite la contraseña" />
           {errores.confirmar ? <span className="formulario__error" role="alert">{errores.confirmar}</span> : null}
         </label>
-        <button type="submit" className="btn btn--naranja btn--bloque">Crear cuenta</button>
+        {errores.general ? <p className="acceso__error" role="alert">{errores.general}</p> : null}
+        <button type="submit" className="btn btn--naranja btn--bloque" disabled={enviando}>
+          {enviando ? "Enviando…" : "Crear cuenta"}
+        </button>
       </form>
 
       <p className="acceso__cambio">
         ¿Ya hay cuenta? <Link to="/ingresar">Ingresar</Link>
       </p>
+      {confirmado ? (
+        <DialogoVerificacion
+          correo={datos.correo.trim()}
+          onCerrar={() => navigate("/ingresar", { replace: true })}
+        />
+      ) : null}
     </AccesoMarco>
+  );
+}
+
+function DialogoVerificacion({ correo, onCerrar }) {
+  const dialogo = useRef(null);
+  const tituloId = useId();
+
+  useEffect(() => {
+    const nodo = dialogo.current;
+    if (nodo && !nodo.open) nodo.showModal();
+  }, []);
+
+  function cerrar() {
+    dialogo.current?.close();
+  }
+
+  return createPortal(
+    <dialog
+      ref={dialogo}
+      className="aviso-cuenta"
+      aria-labelledby={tituloId}
+      onClose={onCerrar}
+      onClick={(evento) => {
+        if (evento.target === dialogo.current) cerrar();
+      }}
+    >
+      <div className="aviso-cuenta__panel">
+        <button type="button" className="dialogo-cerrar" aria-label="Cerrar" onClick={cerrar}>
+          <span aria-hidden="true">×</span>
+        </button>
+        <Etiqueta naranja>Registro</Etiqueta>
+        <h2 id={tituloId}>Revisa tu correo</h2>
+        <p className="aviso-cuenta__texto">
+          Enviamos un enlace a {correo}. Ábrelo para verificar la cuenta. El ingreso se habilita cuando el INE la aprueba.
+        </p>
+        <button type="button" className="btn btn--naranja btn--bloque" onClick={cerrar}>
+          Ir a ingresar
+        </button>
+      </div>
+    </dialog>,
+    document.body,
   );
 }

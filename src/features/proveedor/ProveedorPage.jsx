@@ -4,27 +4,31 @@ import { Etiqueta } from "../../components/ui/Etiqueta";
 import { formatearFecha, formatearQuetzales } from "../../data/precios";
 import {
   ATRIBUTOS,
-  PRODUCTOS_INICIALES,
-  PROVEEDOR,
-  PROVEEDOR_ID,
   atributosVacios,
   estadoDe,
   etiquetaEstado,
   precioActual,
-  sumarMeses,
 } from "../../data/ofertasProveedor";
+import { ApiError } from "../../servicios/api";
+import { useCategoriasPublicacion } from "../../hooks/useCatalogoPublico";
 import { useSesion } from "../../sesion/Sesion";
+import { SelectorCategoria } from "../precios/SelectorCategoria";
+import { tituloCategoria } from "../precios/tituloCategoria";
+import {
+  actualizarProductoProveedor,
+  confirmarPrecioProveedor,
+  crearProductoProveedor,
+  listarMisProductos,
+} from "./proveedorApi";
+import {
+  LIMITES_PRODUCTO,
+  PRESENTACIONES_SUGERIDAS,
+  VACIO_PRODUCTO,
+  armarCuerpoProducto,
+  erroresDesdeApi,
+  validarProductoProveedor,
+} from "./productoProveedorForm";
 import { runTourProveedor, useTourProveedor } from "./tourProveedor";
-
-const PRESENTACIONES = ["Unidad", "Resma", "Ciento", "Caja"];
-const VACIO = {
-  nombre: "",
-  descripcion: "",
-  presentacion: "Unidad",
-  monto: "",
-  categoriaOriginal: "Papelería y artículos de librería",
-  atributos: atributosVacios(),
-};
 
 const CORTES = [
   { id: "todas", titulo: "Productos" },
@@ -46,8 +50,11 @@ const SIGNIFICADO = {
 
 export function ProveedorPage() {
   const { sesion } = useSesion();
-  const propio = sesion?.proveedorId === PROVEEDOR_ID;
-  const [productos, setProductos] = useState(() => (propio ? PRODUCTOS_INICIALES : []));
+  const { categorias, cargando: cargandoCategorias } = useCategoriasPublicacion();
+  const [nombreEmpresa, setNombreEmpresa] = useState("");
+  const [productos, setProductos] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [falloCarga, setFalloCarga] = useState("");
   const [corte, setCorte] = useState("todas");
   const [busqueda, setBusqueda] = useState("");
   const [presentacion, setPresentacion] = useState("");
@@ -55,10 +62,38 @@ export function ProveedorPage() {
   const [detalle, setDetalle] = useState(null);
   const [alta, setAlta] = useState(false);
   const [edicion, setEdicion] = useState(null);
-  const [datos, setDatos] = useState(VACIO);
+  const [datos, setDatos] = useState(VACIO_PRODUCTO);
   const [errores, setErrores] = useState({});
+  const [enviando, setEnviando] = useState(false);
   const [marcado, setMarcado] = useState(null);
   useTourProveedor();
+
+  useEffect(() => {
+    let viva = true;
+    setCargando(true);
+    setFalloCarga("");
+    listarMisProductos()
+      .then((datos) => {
+        if (!viva) return;
+        setNombreEmpresa(datos.proveedor?.nombreComercial || "");
+        setProductos(datos.productos || []);
+      })
+      .catch((fallo) => {
+        if (!viva) return;
+        setProductos([]);
+        setFalloCarga(
+          fallo instanceof ApiError
+            ? fallo.detail || "No se pudo cargar el catálogo."
+            : "No se pudo cargar el catálogo.",
+        );
+      })
+      .finally(() => {
+        if (viva) setCargando(false);
+      });
+    return () => {
+      viva = false;
+    };
+  }, []);
 
   const resumen = useMemo(() => {
     const conteo = { todas: productos.length, vigente: 0, por_confirmar: 0, accion: 0 };
@@ -104,6 +139,7 @@ export function ProveedorPage() {
     if (name.startsWith("atributo.")) {
       const clave = name.slice("atributo.".length);
       setDatos((prev) => ({ ...prev, atributos: { ...prev.atributos, [clave]: value } }));
+      setErrores((prev) => ({ ...prev, [name]: "" }));
       return;
     }
     setDatos((prev) => ({ ...prev, [name]: value }));
@@ -113,7 +149,7 @@ export function ProveedorPage() {
   function cerrarForma() {
     setAlta(false);
     setEdicion(null);
-    setDatos(VACIO);
+    setDatos(VACIO_PRODUCTO);
     setErrores({});
   }
 
@@ -124,7 +160,7 @@ export function ProveedorPage() {
 
   function abrirNuevo() {
     setEdicion(null);
-    setDatos(VACIO);
+    setDatos(VACIO_PRODUCTO);
     setAlta(true);
   }
 
@@ -133,7 +169,7 @@ export function ProveedorPage() {
     setDatos({
       nombre: item.nombre,
       descripcion: item.descripcion,
-      presentacion: item.presentacion,
+      presentacion: item.presentacion || "",
       monto: String(precioActual(item)?.monto ?? ""),
       categoriaOriginal: item.categoriaOriginal || "",
       atributos: atributosVacios(item.atributos),
@@ -142,93 +178,74 @@ export function ProveedorPage() {
     setAlta(true);
   }
 
-  function guardar(evento) {
+  async function guardar(evento) {
     evento.preventDefault();
-    const monto = Number(datos.monto);
-    const fallos = {};
-    if (!datos.nombre.trim()) fallos.nombre = "Escribe el nombre con el que identificas el producto.";
-    if (!datos.descripcion.trim()) fallos.descripcion = "Agrega una descripción para distinguirlo de otros parecidos.";
-    if (!datos.categoriaOriginal.trim()) fallos.categoriaOriginal = "Escribe la categoría tal como la ofreces.";
-    if (!Number.isFinite(monto) || monto <= 0) fallos.monto = "Indica un precio con IVA mayor a cero.";
+    const fallos = validarProductoProveedor(datos);
     setErrores(fallos);
     if (Object.keys(fallos).length) return;
-    const hoy = fechaHoy();
-    const limpio = {
-      nombre: datos.nombre.trim(),
-      descripcion: datos.descripcion.trim(),
-      presentacion: datos.presentacion,
-      categoriaOriginal: datos.categoriaOriginal.trim(),
-      atributos: atributosVacios(datos.atributos),
-    };
-    const filaPrecio = {
-      monto,
-      moneda: "GTQ",
-      fechaPrecio: hoy,
-      vigenciaHasta: sumarMeses(hoy),
-      registradoPorId: sesion?.id || null,
-    };
-    if (edicion) {
-      const anterior = precioActual(edicion)?.monto;
-      const cambio = anterior !== monto;
-      setProductos((prev) =>
-        prev.map((item) =>
-          item.id === edicion.id
-            ? { ...item, ...limpio, precios: cambio ? [...item.precios, filaPrecio] : item.precios }
-            : item
-        )
-      );
-    } else {
-      const n = productos.reduce((max, item) => Math.max(max, Number(String(item.codigoProveedor).replace(/\D/g, "")) || 0), 0) + 1;
-      const id = `pd-${Date.now()}`;
-      setProductos((prev) => [
-        {
-          id,
-          proveedorId: sesion?.proveedorId || PROVEEDOR_ID,
-          codigoProveedor: `PD-${String(n).padStart(4, "0")}`,
-          createdAt: hoy,
-          estado: "activo",
-          precios: [filaPrecio],
-          ...limpio,
-        },
-        ...prev,
-      ]);
-      setCorte("todas");
-      marcar(id);
+
+    const cuerpo = armarCuerpoProducto(datos);
+
+    setEnviando(true);
+    try {
+      const guardado = edicion
+        ? await actualizarProductoProveedor(edicion.id, cuerpo)
+        : await crearProductoProveedor(cuerpo);
+      setProductos((prev) => {
+        const indice = prev.findIndex((item) => item.id === guardado.id);
+        if (indice >= 0) {
+          const siguiente = [...prev];
+          siguiente[indice] = guardado;
+          return siguiente;
+        }
+        return [guardado, ...prev];
+      });
+      if (!edicion) setCorte("todas");
+      marcar(guardado.id);
+      cerrarForma();
+    } catch (fallo) {
+      if (fallo instanceof ApiError) {
+        const porCampo = erroresDesdeApi(fallo);
+        if (Object.keys(porCampo).length) {
+          setErrores({ ...porCampo, general: fallo.detail || "" });
+        } else {
+          setErrores({
+            general: fallo.detail || "No se pudo guardar el producto.",
+          });
+        }
+      } else {
+        setErrores({ general: "No se pudo guardar el producto." });
+      }
+    } finally {
+      setEnviando(false);
     }
-    if (edicion) marcar(edicion.id);
-    cerrarForma();
   }
 
-  function confirmar(item) {
-    const hoy = fechaHoy();
-    setProductos((prev) =>
-      prev.map((fila) =>
-        fila.id === item.id
-          ? {
-              ...fila,
-              precios: [
-                ...fila.precios,
-                {
-                  monto: precioActual(fila)?.monto,
-                  moneda: "GTQ",
-                  fechaPrecio: hoy,
-                  vigenciaHasta: sumarMeses(hoy),
-                  registradoPorId: sesion?.id || null,
-                },
-              ],
-            }
-          : fila
-      )
-    );
-    setDetalle(null);
-    marcar(item.id);
+  async function confirmar(item) {
+    setEnviando(true);
+    try {
+      const actualizado = await confirmarPrecioProveedor(item.id);
+      setProductos((prev) =>
+        prev.map((fila) => (fila.id === actualizado.id ? actualizado : fila)),
+      );
+      setDetalle((actual) => (actual?.id === actualizado.id ? actualizado : actual));
+      marcar(actualizado.id);
+    } catch (fallo) {
+      setFalloCarga(
+        fallo instanceof ApiError
+          ? fallo.detail || "No se pudo confirmar el precio."
+          : "No se pudo confirmar el precio.",
+      );
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
     <section className="pagina bloque mesa-pagina revelar">
       <Contenedor>
         <header className="publicacion-encabezado">
-          <Etiqueta>{propio ? PROVEEDOR : sesion?.nombre}</Etiqueta>
+          <Etiqueta>{nombreEmpresa || sesion?.nombre}</Etiqueta>
           <div className="publicacion-encabezado__titulo" id="prov-titulo">
             <h2>Mis productos</h2>
             <button type="button" className="mesa-tutorial" id="prov-tutorial" onClick={() => runTourProveedor()}>
@@ -284,7 +301,7 @@ export function ProveedorPage() {
               <span>Presentación</span>
               <select value={presentacion} onChange={(evento) => setPresentacion(evento.target.value)}>
                 <option value="">Todas</option>
-                {PRESENTACIONES.map((item) => (
+                {PRESENTACIONES_SUGERIDAS.map((item) => (
                   <option key={item}>{item}</option>
                 ))}
               </select>
@@ -302,7 +319,11 @@ export function ProveedorPage() {
             </div>
           </div>
 
-          {visibles.length === 0 ? (
+          {cargando ? (
+            <p className="mesa-vacia" role="status">Cargando catálogo…</p>
+          ) : falloCarga ? (
+            <p className="acceso__error" role="alert">{falloCarga}</p>
+          ) : visibles.length === 0 ? (
             <p className="mesa-vacia">No hay productos en esta vista.</p>
           ) : (
             <div className="tabla-wrap mesa-tabla">
@@ -377,35 +398,78 @@ export function ProveedorPage() {
             <div className="dialogo-producto__cuerpo">
               <section className="dialogo-bloque">
                 <h4>Producto</h4>
+                <p className="dialogo-bloque__texto">
+                  Mismos datos que verás en la tabla del catálogo: producto, descripción, presentación y categoría.
+                  El código interno ({edicion ? edicion.codigoProveedor : "PD-0001, …"}) lo asigna el sistema al crear.
+                </p>
                 <div className="prov-campos">
                   <label className="dialogo-fila--ancho">
-                    Nombre
-                    <input name="nombre" value={datos.nombre} onChange={cambiar} aria-invalid={Boolean(errores.nombre)} />
+                    Producto
+                    <input
+                      name="nombre"
+                      value={datos.nombre}
+                      onChange={cambiar}
+                      maxLength={LIMITES_PRODUCTO.nombre}
+                      aria-invalid={Boolean(errores.nombre)}
+                      placeholder="Nombre con el que identificas la oferta"
+                    />
                     {errores.nombre ? <span className="formulario__error" role="alert">{errores.nombre}</span> : null}
                   </label>
                   <label className="dialogo-fila--ancho">
                     Descripción
-                    <textarea name="descripcion" rows={3} value={datos.descripcion} onChange={cambiar} aria-invalid={Boolean(errores.descripcion)} />
+                    <textarea
+                      name="descripcion"
+                      rows={3}
+                      value={datos.descripcion}
+                      onChange={cambiar}
+                      maxLength={LIMITES_PRODUCTO.descripcion}
+                      aria-invalid={Boolean(errores.descripcion)}
+                      placeholder="Características técnicas, medidas, uso o variante"
+                    />
                     {errores.descripcion ? <span className="formulario__error" role="alert">{errores.descripcion}</span> : null}
                   </label>
                   <label>
                     Presentación
-                    <select name="presentacion" value={datos.presentacion} onChange={cambiar}>
-                      {PRESENTACIONES.map((item) => (
-                        <option key={item}>{item}</option>
+                    <input
+                      name="presentacion"
+                      list="presentaciones-proveedor"
+                      value={datos.presentacion}
+                      onChange={cambiar}
+                      maxLength={LIMITES_PRODUCTO.presentacion}
+                      aria-invalid={Boolean(errores.presentacion)}
+                      placeholder="Unidad, caja, resma, vial…"
+                    />
+                    <datalist id="presentaciones-proveedor">
+                      {PRESENTACIONES_SUGERIDAS.map((item) => (
+                        <option key={item} value={item} />
                       ))}
-                    </select>
+                    </datalist>
+                    {errores.presentacion ? <span className="formulario__error" role="alert">{errores.presentacion}</span> : null}
                   </label>
-                  <label>
+                  <label className="dialogo-fila--ancho">
                     Categoría
-                    <input name="categoriaOriginal" value={datos.categoriaOriginal} onChange={cambiar} aria-invalid={Boolean(errores.categoriaOriginal)} placeholder="Como la ofreces, en texto libre" />
+                    {cargandoCategorias ? (
+                      <span className="dialogo-bloque__texto">Cargando categorías…</span>
+                    ) : (
+                      <SelectorCategoria
+                        categorias={categorias}
+                        valor={datos.categoriaOriginal}
+                        permitirTodas={false}
+                        etiquetaVacia="Elegir categoría del catálogo INE"
+                        invalido={Boolean(errores.categoriaOriginal)}
+                        onCambio={(etiqueta) => {
+                          setDatos((prev) => ({ ...prev, categoriaOriginal: etiqueta }));
+                          setErrores((prev) => ({ ...prev, categoriaOriginal: "" }));
+                        }}
+                      />
+                    )}
                     {errores.categoriaOriginal ? <span className="formulario__error" role="alert">{errores.categoriaOriginal}</span> : null}
                   </label>
                 </div>
               </section>
               <section className="dialogo-bloque">
-                <h4>Atributos</h4>
-                <p className="dialogo-bloque__texto">Describen el producto y no se suman al precio. Se guardan tal como se escriben.</p>
+                <h4>Detalle adicional</h4>
+                <p className="dialogo-bloque__texto">Opcional. Marca, modelo y especificación se guardan en JSON y no alteran el precio.</p>
                 <div className="prov-campos">
                   {ATRIBUTOS.map((campo) => (
                     <label key={campo.clave}>
@@ -414,17 +478,34 @@ export function ProveedorPage() {
                         name={`atributo.${campo.clave}`}
                         value={datos.atributos[campo.clave] ?? ""}
                         onChange={cambiar}
+                        maxLength={LIMITES_PRODUCTO[campo.clave]}
+                        aria-invalid={Boolean(errores[`atributo.${campo.clave}`])}
                       />
+                      {errores[`atributo.${campo.clave}`] ? (
+                        <span className="formulario__error" role="alert">{errores[`atributo.${campo.clave}`]}</span>
+                      ) : null}
                     </label>
                   ))}
                 </div>
               </section>
               <section className="dialogo-bloque">
-                <h4>Precio</h4>
+                <h4>Precio vigente</h4>
+                <p className="dialogo-bloque__texto">
+                  Primer registro en el historial: monto con IVA en quetzales, vigencia de seis meses desde hoy.
+                </p>
                 <div className="prov-campos">
                   <label>
                     Precio con IVA (Q)
-                    <input name="monto" type="number" min="0" step="0.01" value={datos.monto} onChange={cambiar} aria-invalid={Boolean(errores.monto)} />
+                    <input
+                      name="monto"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={datos.monto}
+                      onChange={cambiar}
+                      aria-invalid={Boolean(errores.monto)}
+                      placeholder="0.000"
+                    />
                     {errores.monto ? <span className="formulario__error" role="alert">{errores.monto}</span> : null}
                   </label>
                   <div className="prov-solo">
@@ -442,9 +523,12 @@ export function ProveedorPage() {
                 </div>
               </section>
             </div>
+            {errores.general ? <p className="acceso__error" role="alert">{errores.general}</p> : null}
             <footer className="dialogo-producto__pie">
-              <button type="button" className="btn btn--linea" onClick={cerrarForma}>Cancelar</button>
-              <button type="submit" className="btn btn--naranja">{edicion ? "Guardar cambios" : "Agregar al catálogo"}</button>
+              <button type="button" className="btn btn--linea" onClick={cerrarForma} disabled={enviando}>Cancelar</button>
+              <button type="submit" className="btn btn--naranja" disabled={enviando}>
+                {enviando ? "Guardando…" : edicion ? "Guardar cambios" : "Agregar al catálogo"}
+              </button>
             </footer>
           </form>
         ) : null}
@@ -474,7 +558,7 @@ function Detalle({ item, onCerrar, onEditar, onConfirmar }) {
           <p className="dialogo-bloque__texto">{SIGNIFICADO[estado]}</p>
           <dl className="dialogo-filas">
             <Fila etiqueta="Presentación" valor={item.presentacion} />
-            <Fila etiqueta="Categoría" valor={item.categoriaOriginal || "Sin categoría"} />
+            <Fila etiqueta="Categoría" valor={item.categoriaOriginal ? tituloCategoria(item.categoriaOriginal) : "Sin categoría"} />
             <Fila etiqueta="Precio con IVA" valor={formatearQuetzales(actual?.monto)} />
             <Fila etiqueta="Moneda" valor={actual?.moneda || "GTQ"} />
             <Fila etiqueta="Fecha de carga" valor={formatearFecha(item.createdAt)} />
@@ -529,11 +613,6 @@ function valorOrden(item, campo) {
   if (campo === "monto") return precioActual(item)?.monto ?? 0;
   if (campo === "fechaPrecio") return precioActual(item)?.fechaPrecio || "";
   return item[campo];
-}
-
-function fechaHoy() {
-  const hoy = new Date();
-  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 }
 
 function Fila({ etiqueta, valor }) {

@@ -4,7 +4,7 @@ import { Etiqueta } from "../../components/ui/Etiqueta";
 import { BuscadorPublicacion } from "../precios/BuscadorPublicacion";
 import { consultaAParams } from "../../servicios/catalogo";
 
-export function ConsultaRapida() {
+export function ConsultaRapida({ categorias = [] }) {
   const navigate = useNavigate();
 
   function buscar(consulta) {
@@ -24,7 +24,7 @@ export function ConsultaRapida() {
             precios de referencia.
           </p>
         </div>
-        <BuscadorPublicacion compacto inicial={{ opcion: "todos", valor: "" }} onBuscar={buscar} />
+        <BuscadorPublicacion compacto inicial={{ opcion: "todos", valor: "" }} onBuscar={buscar} categorias={categorias} />
       </Contenedor>
     </section>
   );

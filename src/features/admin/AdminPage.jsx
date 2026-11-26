@@ -1,36 +1,46 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { TIPOS_MODALIDAD } from "../../data/modalidades";
-import { anotar, detalleDe, fijarModalidad, leerBitacora, modalidadesApagadas } from "../../sesion/bitacora";
-import {
-  CUENTAS,
-  ROLES,
-  actualizarCuenta,
-  cuentasDisponibles,
-  estaBloqueada,
-  fijarBloqueo,
-  guardarCuenta,
-  inicialesDe,
-} from "../../sesion/roles";
+import { ApiError, solicitar } from "../../servicios/api";
+import { ROLES, inicialesDe } from "../../sesion/roles";
 import { useSesion } from "../../sesion/Sesion";
+import {
+  ESTADO_CUENTA,
+  FILTROS_ESTADO,
+  FILTROS_ROL,
+  ROL_API,
+  accionLegible,
+  recursoLegible,
+  tonoAccion,
+} from "./adminEtiquetas";
+import { PendientesReales } from "./PendientesReales";
+import "./adminConsola.css";
+import { runTourAdmin, useTourAdmin } from "../../tours/tourAdmin";
 
-const ROLES_ALTA = ["trabajador", "proveedor"];
-const ROLES_FILTRO = ["admin", "trabajador", "proveedor", "solicitante"];
-const POR_PAGINA = 8;
 const NAV = [
-  { grupo: "Gestión", items: [{ id: "resumen", titulo: "Resumen", icono: "M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" }] },
+  { grupo: "Gestión", items: [{ id: "resumen", titulo: "Resumen", icono: "M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z", clave: "resumen" }] },
   {
-    grupo: "Personas",
+    grupo: "Cuentas",
     items: [
-      { id: "usuarios", titulo: "Usuarios", icono: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
-      { id: "pendientes", titulo: "En revisión", icono: "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" },
+      { id: "pendientes", titulo: "En revisión", icono: "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0", clave: "pendientes" },
+      { id: "usuarios", titulo: "Usuarios", icono: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75", clave: "usuariosActivos" },
+      { id: "invitaciones", titulo: "Invitaciones", icono: "M4 4h16v16H4zM4 8h16M8 4v4", clave: null },
     ],
   },
-  { grupo: "Catálogo", items: [{ id: "modalidades", titulo: "Modalidades", icono: "M4 7h16M4 12h16M4 17h10" }] },
-  { grupo: "Control", items: [{ id: "bitacora", titulo: "Bitácora", icono: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }] },
+  { grupo: "Catálogo", items: [{ id: "modalidades", titulo: "Modalidades", icono: "M4 7h16M4 12h16M4 17h10", clave: "modalidadesActivas" }] },
+  { grupo: "Control", items: [{ id: "bitacora", titulo: "Bitácora", icono: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01", clave: "auditoriaTotal" }] },
 ];
 
-function fechaDe(iso) {
+const DESCRIPCION = {
+  resumen: "Indicadores reales del portal.",
+  pendientes: "Solicitantes con correo verificado que esperan tu decisión.",
+  usuarios: "Cuentas registradas en la base de datos, con su estado actual.",
+  invitaciones: "Envía acceso a proveedores mediante invitación por correo.",
+  modalidades: "Tipos de compra publicados en el catálogo.",
+  bitacora: "Eventos auditados del servidor; solo lectura.",
+};
+
+function fechaCorta(iso) {
+  if (!iso) return "—";
   return new Date(iso).toLocaleString("es-GT", { dateStyle: "short", timeStyle: "short" });
 }
 
@@ -42,148 +52,44 @@ function Icono({ d }) {
   );
 }
 
+function Pager({ pagina, paginas, total, etiqueta, cambiar }) {
+  return (
+    <footer className="consola__pager">
+      <span>{total} {etiqueta}{total === 1 ? "" : "s"} · pág. {pagina} de {paginas}</span>
+      <div>
+        <button type="button" className="btn btn--linea btn--sm" disabled={pagina <= 1} onClick={() => cambiar(pagina - 1)}>Anterior</button>
+        <button type="button" className="btn btn--linea btn--sm" disabled={pagina >= paginas} onClick={() => cambiar(pagina + 1)}>Siguiente</button>
+      </div>
+    </footer>
+  );
+}
+
 export function AdminPage() {
   const { sesion, salir } = useSesion();
   const navigate = useNavigate();
-  const dialogo = useRef(null);
   const [corte, setCorte] = useState("resumen");
   const [plegada, setPlegada] = useState(() => localStorage.getItem("dpir.consola.plegada") === "1");
   const [menu, setMenu] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
-  const [estadoFiltro, setEstadoFiltro] = useState("todos");
-  const [rolFiltro, setRolFiltro] = useState("todos");
-  const [pagina, setPagina] = useState(1);
-  const [datos, setDatos] = useState({ nombre: "", correo: "", clave: "", rol: "trabajador" });
-  const [errores, setErrores] = useState({});
+  const [resumen, setResumen] = useState(null);
   const [version, setVersion] = useState(0);
-  const refrescar = () => setVersion((valor) => valor + 1);
+  const refrescar = useCallback(() => setVersion((v) => v + 1), []);
+  useTourAdmin();
 
-  const cuentas = useMemo(() => cuentasDisponibles(), [version]);
-  const apagadas = useMemo(() => modalidadesApagadas(), [version]);
-  const bitacora = useMemo(() => leerBitacora(), [version]);
-  const texto = busqueda.trim().toLowerCase();
-  const titulo = NAV.flatMap((grupo) => grupo.items).find((item) => item.id === corte)?.titulo || "Resumen";
-  const enRevision = (item) => item.rol === "solicitante" && item.perfil?.estadoRevision === "pendiente";
+  useEffect(() => {
+    if (sesion?.rol !== "admin") return undefined;
+    let viva = true;
+    solicitar("/administracion/resumen")
+      .then((datos) => { if (viva) setResumen(datos); })
+      .catch(() => { if (viva) setResumen(null); });
+    return () => { viva = false; };
+  }, [sesion, version]);
 
-  const resumen = {
-    activos: cuentas.filter((item) => item.estado !== "suspendido" && !estaBloqueada(item.correo)).length,
-    pendientes: cuentas.filter(enRevision).length,
-    modalidades: TIPOS_MODALIDAD.length - apagadas.size,
-    bitacora: bitacora.length,
-  };
-  const CIRC = 452.39;
-  const TINTES = {
-    admin: { clase: "dona-admin", sw: "sw-profundo" },
-    solicitante: { clase: "dona-b", sw: "sw-naranja" },
-    trabajador: { clase: "dona-a", sw: "sw-azul" },
-    proveedor: { clase: "dona-c", sw: "sw-lima" },
-  };
-  const distribucion = ["admin", "trabajador", "proveedor", "solicitante"].map((id) => ({
-    id,
-    n: cuentas.filter((item) => item.roles.includes(id) && item.estado !== "suspendido" && !estaBloqueada(item.correo)).length,
-    ...TINTES[id],
-  }));
-  const sumaAccesos = distribucion.reduce((total, item) => total + item.n, 0);
-  let cursor = 0;
-  const segmentos = sumaAccesos
-    ? distribucion.filter((item) => item.n).map((item) => {
-        const largo = (item.n / sumaAccesos) * CIRC;
-        const segmento = { ...item, largo, offset: cursor, pct: Math.round((item.n / sumaAccesos) * 100) };
-        cursor += largo;
-        return segmento;
-      })
-    : [];
-
-  useEffect(() => { setPagina(1); }, [corte, busqueda, estadoFiltro, rolFiltro]);
+  const titulo = NAV.flatMap((g) => g.items).find((i) => i.id === corte)?.titulo || "Resumen";
+  const indicador = (clave) => (clave && resumen ? resumen[clave] ?? 0 : null);
 
   function ir(id) {
     setCorte(id);
-    setBusqueda("");
     setMenu(false);
-  }
-
-  function cambiar(evento) {
-    const { name, value } = evento.target;
-    setDatos((prev) => ({ ...prev, [name]: value }));
-    setErrores((prev) => ({ ...prev, [name]: "" }));
-  }
-
-  function crear(evento) {
-    evento.preventDefault();
-    const fallos = {};
-    if (datos.nombre.trim().length < 3) fallos.nombre = "Escribe el nombre de la persona o de la entidad.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.correo.trim())) fallos.correo = "Escribe un correo válido.";
-    if (cuentas.some((item) => item.correo.toLowerCase() === datos.correo.trim().toLowerCase())) {
-      fallos.correo = "Ese correo ya tiene una cuenta.";
-    }
-    if (datos.clave.length < 8) fallos.clave = "La contraseña necesita al menos 8 caracteres.";
-    setErrores(fallos);
-    if (Object.keys(fallos).length) return;
-    const cuenta = {
-      id: `u-${Date.now()}`,
-      nombre: datos.nombre.trim(),
-      correo: datos.correo.trim(),
-      roles: [datos.rol],
-      rol: datos.rol,
-      clave: datos.clave,
-      estado: "activo",
-      proveedorId: datos.rol === "proveedor" ? `prov-${Date.now()}` : null,
-      perfil: datos.rol === "solicitante"
-        ? { institucion: datos.nombre.trim(), cargo: "", estadoRevision: "aprobado" }
-        : null,
-    };
-    guardarCuenta(cuenta);
-    anotar({
-      actor: sesion.nombre,
-      accion: "Alta de usuario",
-      recurso: "usuarios",
-      recursoId: cuenta.id,
-      metadatos: { nombre: cuenta.nombre, rol: ROLES[cuenta.rol].etiqueta },
-    });
-    setDatos({ nombre: "", correo: "", clave: "", rol: "trabajador" });
-    dialogo.current?.close();
-    setCorte("usuarios");
-    refrescar();
-  }
-
-  function alternarAcceso(cuenta) {
-    if (cuenta.correo === sesion.correo) return;
-    const bloqueada = !estaBloqueada(cuenta.correo);
-    fijarBloqueo(cuenta.correo, bloqueada);
-    anotar({
-      actor: sesion.nombre,
-      accion: bloqueada ? "Acceso suspendido" : "Acceso restaurado",
-      recurso: "usuarios",
-      recursoId: cuenta.id,
-      metadatos: { correo: cuenta.correo },
-    });
-    refrescar();
-  }
-
-  function aprobar(cuenta) {
-    const perfil = { ...cuenta.perfil, estadoRevision: "aprobado" };
-    if (!actualizarCuenta(cuenta.correo, { perfil })) return;
-    anotar({
-      actor: sesion.nombre,
-      accion: "Solicitante aprobado",
-      recurso: "perfiles_solicitantes",
-      recursoId: cuenta.id,
-      metadatos: { correo: cuenta.correo, institucion: perfil.institucion },
-    });
-    refrescar();
-  }
-
-  function alternarModalidad(modalidad) {
-    const activa = apagadas.has(modalidad.id);
-    fijarModalidad(modalidad.id, activa);
-    anotar({
-      actor: sesion.nombre,
-      accion: activa ? "Modalidad activa" : "Modalidad inactiva",
-      recurso: "tipos_modalidad",
-      recursoId: modalidad.id,
-      metadatos: { nombre: modalidad.nombre },
-    });
-    refrescar();
   }
 
   function plegar() {
@@ -193,36 +99,13 @@ export function AdminPage() {
     });
   }
 
-  const listaUsuarios = cuentas.filter((item) => {
-    if (estadoFiltro === "activos" && (item.estado === "suspendido" || estaBloqueada(item.correo))) return false;
-    if (estadoFiltro === "suspendidos" && item.estado !== "suspendido" && !estaBloqueada(item.correo)) return false;
-    if (rolFiltro !== "todos" && !item.roles.includes(rolFiltro)) return false;
-    return !texto || `${item.nombre} ${item.correo}`.toLowerCase().includes(texto);
-  });
-  const listaPendientes = cuentas.filter((item) => enRevision(item) && (!texto || `${item.nombre} ${item.correo} ${item.perfil?.institucion || ""}`.toLowerCase().includes(texto)));
-  const listaModalidades = TIPOS_MODALIDAD.filter((item) => {
-    if (estadoFiltro === "inactivas" && !apagadas.has(item.id)) return false;
-    if (estadoFiltro === "activas" && apagadas.has(item.id)) return false;
-    return !texto || item.nombre.toLowerCase().includes(texto);
-  });
-  const listaBitacora = bitacora.filter((item) => !texto || `${item.accion} ${item.actor} ${item.recurso} ${detalleDe(item)}`.toLowerCase().includes(texto));
-  const fuente = corte === "usuarios" ? listaUsuarios : corte === "pendientes" ? listaPendientes : corte === "modalidades" ? listaModalidades : listaBitacora;
-  const paginas = Math.max(1, Math.ceil(fuente.length / POR_PAGINA));
-  const paginaSegura = Math.min(pagina, paginas);
-  const filas = fuente.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
-
   return (
-    <section className={`consola${plegada ? " es-plegada" : ""}${menu ? " es-abierta" : ""}`}>
+    <section className={`consola consola--admin${plegada ? " es-plegada" : ""}${menu ? " es-abierta" : ""}`}>
       <button type="button" className="consola__velo" aria-label="Cerrar menú" onClick={() => setMenu(false)} />
-      <aside className="consola__lado">
+      <aside className="consola__lado" id="admin-nav">
         <div className="consola__marca">
-          <div>
-            <strong>DPIR</strong>
-            <small>Administración</small>
-          </div>
-          <button type="button" className="consola__plegar" aria-label={plegada ? "Expandir menú" : "Plegar menú"} onClick={plegar}>
-            {plegada ? "›" : "‹"}
-          </button>
+          <div><strong>DPIR</strong><small>Administración</small></div>
+          <button type="button" className="consola__plegar" aria-label={plegada ? "Expandir menú" : "Plegar menú"} onClick={plegar}>{plegada ? "›" : "‹"}</button>
         </div>
         {NAV.map((grupo) => (
           <div key={grupo.grupo}>
@@ -232,20 +115,28 @@ export function AdminPage() {
                 <button key={item.id} type="button" className={corte === item.id ? "es-activa" : ""} aria-current={corte === item.id ? "page" : undefined} onClick={() => ir(item.id)}>
                   <Icono d={item.icono} />
                   <span>{item.titulo}</span>
-                  {item.id !== "resumen" ? <b>{item.id === "usuarios" ? resumen.activos : item.id === "modalidades" ? resumen.modalidades : resumen[item.id]}</b> : null}
+                  {item.id !== "resumen" && item.clave ? <b>{indicador(item.clave) ?? "…"}</b> : null}
                 </button>
               ))}
             </nav>
           </div>
         ))}
-        <div className="consola__pie">
+        <div className="consola__pie consola__pie--admin">
           <span className="consola__avatar" aria-hidden="true">{inicialesDe(sesion.nombre)}</span>
-          <div>
+          <div className="consola__pie-cuenta">
             <strong>{sesion.nombre}</strong>
-            <small>{ROLES[sesion.rol].etiqueta}</small>
+            <small>{ROLES.admin.etiqueta}</small>
           </div>
-          <Link to="/">Sitio público</Link>
-          <button type="button" onClick={() => { salir(); navigate("/"); }}>Cerrar sesión</button>
+          <div className="consola__pie-acciones">
+            <Link to="/" className="consola__pie-enlace">
+              <Icono d="M4 11h5l2-7h7v16H4zM9 11V4" />
+              <span>Sitio público</span>
+            </Link>
+            <button type="button" className="consola__pie-salir" onClick={() => { salir(); navigate("/"); }}>
+              <Icono d="M9 21H5a2 2 0 0 1-2-2V5M16 17l5-5-5-5M21 12H9" />
+              <span>Cerrar sesión</span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -253,294 +144,443 @@ export function AdminPage() {
         <header className="consola__top">
           <div className="consola__miga">
             <button type="button" className="consola__menu" aria-label="Abrir menú" onClick={() => setMenu(true)}>☰</button>
-            <span>Administración</span>
-            <span aria-hidden="true">/</span>
-            <strong>{titulo}</strong>
+            <span>Administración</span><span aria-hidden="true">/</span><strong>{titulo}</strong>
           </div>
           <div className="consola__top-cuenta">
-            <div>
-              <strong>{sesion.nombre}</strong>
-              <small style={{ display: "block", color: "var(--muted)", fontSize: "0.75rem" }}>{ROLES[sesion.rol].etiqueta}</small>
-            </div>
             <span aria-hidden="true">{inicialesDe(sesion.nombre)}</span>
           </div>
         </header>
 
         <div className="consola__contenido">
-          {corte === "resumen" ? (
-            <>
-              <div className="consola__kpis">
-                <article className="consola__kpi consola__kpi--azul">
-                  <span>Con acceso</span><strong>{resumen.activos}</strong><small>Cuentas activas del portal</small>
-                  <div className="consola__pista" aria-hidden="true"><i style={{ "--p": resumen.activos ? "100%" : "0%" }} /></div>
-                </article>
-                <article className="consola__kpi consola__kpi--naranja">
-                  <span>En revisión</span><strong>{resumen.pendientes}</strong><small>Solicitantes pendientes de aprobar</small>
-                  <div className="consola__pista" aria-hidden="true"><i style={{ "--p": resumen.pendientes ? "100%" : "0%" }} /></div>
-                </article>
-                <article className="consola__kpi consola__kpi--lima">
-                  <span>Modalidades</span><strong>{resumen.modalidades}</strong><small>Activas de {TIPOS_MODALIDAD.length}</small>
-                  <div className="consola__pista" aria-hidden="true"><i style={{ "--p": `${Math.round((resumen.modalidades / TIPOS_MODALIDAD.length) * 100)}%` }} /></div>
-                </article>
-                <article className="consola__kpi consola__kpi--profundo">
-                  <span>Bitácora</span><strong>{resumen.bitacora}</strong><small>Movimientos registrados</small>
-                  <div className="consola__pista" aria-hidden="true"><i style={{ "--p": resumen.bitacora ? "100%" : "0%" }} /></div>
-                </article>
-              </div>
-              <div className="consola__dos">
-                <section className="consola__tarjeta">
-                    <header>
-                      <div>
-                        <h2>Distribución</h2>
-                        <p>Cuentas activas por acceso.</p>
-                      </div>
-                    </header>
-                    <div className="dona-wrap consola__dona">
-                      <svg className="dona" viewBox="0 0 200 200" aria-hidden="true">
-                        <circle className="dona-fondo" cx="100" cy="100" r="72" />
-                        {segmentos.map((item) => (
-                          <circle
-                            key={item.id}
-                            className={item.clase}
-                            cx="100"
-                            cy="100"
-                            r="72"
-                            style={{ strokeDasharray: `${item.largo} ${CIRC}`, strokeDashoffset: -item.offset }}
-                          />
-                        ))}
-                        <text x="100" y="96" className="dona-num">{sumaAccesos}</text>
-                        <text x="100" y="116" className="dona-sub">activas</text>
-                      </svg>
-                      <ul className="leyenda">
-                        {distribucion.map((item) => (
-                          <li key={item.id}>
-                            <i className={`sw ${item.sw}`} />
-                            <span>{ROLES[item.id].etiqueta}</span>
-                            <b>{item.n}</b>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </section>
-                  <section className="consola__espera">
-                    <strong>{resumen.pendientes}</strong>
-                    <div>
-                      <span>En revisión</span>
-                      <p>{resumen.pendientes ? "Estos solicitantes esperan aprobación." : "Nadie está en revisión. Un registro nuevo aparece aquí."}</p>
-                      {resumen.pendientes ? <button type="button" className="btn btn--naranja" onClick={() => ir("pendientes")}>Revisar perfiles</button> : null}
-                    </div>
-                  </section>
-              </div>
-              <section className="consola__tarjeta">
-                <header>
-                  <div>
-                    <h2>Cuentas recientes</h2>
-                    <p>Las últimas que están en el portal.</p>
-                  </div>
-                  <button type="button" className="btn btn--linea" onClick={() => ir("usuarios")}>Ver todas</button>
-                </header>
-                <TablaUsuarios filas={cuentas.slice(0, 5)} sesion={sesion} onAcceso={alternarAcceso} />
-              </section>
-              <section className="consola__tarjeta">
-                <header>
-                  <div>
-                    <h2>Últimos movimientos</h2>
-                    <p>La bitácora solo se consulta.</p>
-                  </div>
-                  <button type="button" className="btn btn--linea" onClick={() => ir("bitacora")}>Ver bitácora</button>
-                </header>
-                <TablaBitacora filas={bitacora.slice(0, 5)} />
-              </section>
-            </>
-          ) : (
-            <section className="consola__tarjeta">
-              <header className="consola__pagina">
+          <div key={corte} className="consola__escena">
+            {corte !== "resumen" ? (
+              <header className="consola__pagina consola__pagina--compacta consola__escena-cabecera">
                 <div>
+                  <p className="consola__ceja">Administración</p>
                   <h1>{titulo}</h1>
-                  <p>
-                    {corte === "usuarios" && "Altas, suspensiones y restauraciones de las cuentas internas."}
-                    {corte === "pendientes" && "Solicitantes cuya institución aún no está aprobada."}
-                    {corte === "modalidades" && "Tipos de compra del portal. Inactivar una modalidad la deja fuera de las solicitudes nuevas."}
-                    {corte === "bitacora" && "Cada cambio queda aquí. Esta lista no se edita ni se borra."}
-                  </p>
+                  <p>{DESCRIPCION[corte]}</p>
                 </div>
-                {corte === "usuarios" ? (
-                  <button type="button" className="btn btn--naranja" onClick={() => dialogo.current?.showModal()}>Nuevo usuario</button>
-                ) : null}
               </header>
-              <div className="consola__barra" style={{ padding: "0 16px 12px" }}>
-                <input
-                  type="search"
-                  value={busqueda}
-                  onChange={(evento) => setBusqueda(evento.target.value)}
-                  placeholder={corte === "modalidades" ? "Buscar modalidad" : corte === "bitacora" ? "Buscar acción, actor o recurso" : "Buscar nombre o correo"}
-                  aria-label="Buscar"
-                />
-                {corte === "usuarios" ? (
-                  <>
-                    <select value={estadoFiltro} onChange={(evento) => setEstadoFiltro(evento.target.value)} aria-label="Estado">
-                      <option value="todos">Todos los estados</option>
-                      <option value="activos">Activas</option>
-                      <option value="suspendidos">Suspendidas</option>
-                    </select>
-                    <select value={rolFiltro} onChange={(evento) => setRolFiltro(evento.target.value)} aria-label="Acceso">
-                      <option value="todos">Todos los accesos</option>
-                      {ROLES_FILTRO.map((id) => <option key={id} value={id}>{ROLES[id].etiqueta}</option>)}
-                    </select>
-                  </>
-                ) : null}
-                {corte === "modalidades" ? (
-                  <select value={estadoFiltro} onChange={(evento) => setEstadoFiltro(evento.target.value)} aria-label="Uso">
-                    <option value="todos">Todas</option>
-                    <option value="activas">Activas</option>
-                    <option value="inactivas">Inactivas</option>
-                  </select>
-                ) : null}
-              </div>
-              {corte === "usuarios" ? <TablaUsuarios filas={filas} sesion={sesion} onAcceso={alternarAcceso} /> : null}
-              {corte === "pendientes" ? <TablaPendientes filas={filas} onAprobar={aprobar} /> : null}
-              {corte === "modalidades" ? <TablaModalidades filas={filas} apagadas={apagadas} onCambiar={alternarModalidad} /> : null}
-              {corte === "bitacora" ? <TablaBitacora filas={filas} /> : null}
-              <footer className="consola__pager">
-                <span>{fuente.length} registro{fuente.length === 1 ? "" : "s"}</span>
-                <div>
-                  <button type="button" className="btn btn--linea" disabled={paginaSegura <= 1} onClick={() => setPagina((valor) => valor - 1)}>Anterior</button>
-                  <button type="button" className="btn btn--linea" disabled={paginaSegura >= paginas} onClick={() => setPagina((valor) => valor + 1)}>Siguiente</button>
-                </div>
-              </footer>
-            </section>
-          )}
+            ) : null}
+
+            {corte === "resumen" ? <ResumenAdmin resumen={resumen} ir={ir} refrescar={refrescar} version={version} /> : null}
+            {corte === "pendientes" ? (
+              <section className="consola__panel consola__escena-panel">
+                <PendientesReales onCambio={refrescar} />
+              </section>
+            ) : null}
+            {corte === "usuarios" ? <UsuariosAdmin version={version} /> : null}
+            {corte === "modalidades" ? <ModalidadesAdmin version={version} onCambio={refrescar} /> : null}
+            {corte === "bitacora" ? <BitacoraAdmin version={version} /> : null}
+            {corte === "invitaciones" ? <InvitacionesAdmin /> : null}
+          </div>
         </div>
       </div>
-
-      <dialog className="consola__dialog" ref={dialogo} onClose={() => setErrores({})}>
-        <form onSubmit={crear}>
-          <h2>Nuevo usuario</h2>
-          <p style={{ margin: 0, color: "var(--muted)" }}>
-            {datos.rol === "proveedor"
-              ? "Se crea la persona y el proveedor ligado a esta cuenta, con la contraseña temporal."
-              : "La cuenta de trabajador entra activa con la contraseña temporal que se escribe aquí."}
-          </p>
-          <label>Nombre<input name="nombre" value={datos.nombre} onChange={cambiar} aria-invalid={Boolean(errores.nombre)} />{errores.nombre ? <span className="formulario__error">{errores.nombre}</span> : null}</label>
-          <label>Correo<input name="correo" type="email" value={datos.correo} onChange={cambiar} aria-invalid={Boolean(errores.correo)} />{errores.correo ? <span className="formulario__error">{errores.correo}</span> : null}</label>
-          <label>Contraseña temporal<input name="clave" type="text" autoComplete="off" value={datos.clave} onChange={cambiar} aria-invalid={Boolean(errores.clave)} />{errores.clave ? <span className="formulario__error">{errores.clave}</span> : null}</label>
-          <label>Acceso
-            <select name="rol" value={datos.rol} onChange={cambiar}>
-              {ROLES_ALTA.map((id) => <option key={id} value={id}>{ROLES[id].etiqueta}</option>)}
-            </select>
-          </label>
-          <div className="consola__barra">
-            <button type="submit" className="btn btn--naranja">Crear cuenta</button>
-            <button type="button" className="btn btn--linea" onClick={() => dialogo.current?.close()}>Cancelar</button>
-          </div>
-        </form>
-      </dialog>
     </section>
   );
 }
 
-function TablaUsuarios({ filas, sesion, onAcceso }) {
-  if (!filas.length) return <p className="consola__vacio">No hay cuentas con esos filtros.</p>;
+function ResumenAdmin({ resumen, ir, version }) {
+  const [usuarios, setUsuarios] = useState([]);
+  const [eventos, setEventos] = useState([]);
+
+  useEffect(() => {
+    let viva = true;
+    Promise.all([
+      solicitar("/administracion/usuarios?limite=5"),
+      solicitar("/administracion/auditoria?limite=5"),
+    ])
+      .then(([lista, bitacora]) => {
+        if (!viva) return;
+        setUsuarios(lista.usuarios || []);
+        setEventos(bitacora.eventos || []);
+      })
+      .catch(() => {
+        if (viva) {
+          setUsuarios([]);
+          setEventos([]);
+        }
+      });
+    return () => { viva = false; };
+  }, [version]);
+
+  if (!resumen) return <p className="consola__vacio">Cargando el resumen…</p>;
+
+  const accesos = Object.entries(resumen.accesos || {});
+  const maxAcceso = Math.max(1, ...accesos.map(([, n]) => n));
+
   return (
-    <div className="tabla-wrap">
-      <table className="tabla tabla--densa">
+    <>
+      <header className="consola__pagina consola__pagina--compacta consola__escena-cabecera" id="admin-intro">
+        <div className="consola__titulo-fila">
+          <div>
+            <p className="consola__ceja">Administración</p>
+            <h1>Resumen</h1>
+            <p>Indicadores reales del portal.</p>
+          </div>
+          <button type="button" className="mesa-tutorial" id="admin-tutorial" onClick={() => runTourAdmin()}>
+            Tutorial
+          </button>
+        </div>
+      </header>
+      <div className="consola__kpis consola__kpis--compactos consola__kpis--entrada" id="admin-kpis">
+        <article id="admin-kpi-revision" className={`consola__kpi consola__kpi--revision${resumen.pendientes ? " tiene-pendientes" : ""}`}>
+          <span>En revisión</span>
+          <strong>{resumen.pendientes}</strong>
+          {resumen.pendientes ? (
+            <button type="button" className="btn btn--naranja btn--sm consola__kpi-btn" onClick={() => ir("pendientes")}>
+              Revisar solicitudes
+            </button>
+          ) : (
+            <small className="consola__kpi-nota">Nadie espera aprobación</small>
+          )}
+        </article>
+        <article className="consola__kpi"><span>Cuentas activas</span><strong>{resumen.usuariosActivos}</strong></article>
+        <article className="consola__kpi"><span>Modalidades</span><strong>{resumen.modalidadesActivas}/{resumen.modalidadesTotal}</strong></article>
+        <article className="consola__kpi"><span>Eventos</span><strong>{resumen.auditoriaTotal}</strong></article>
+      </div>
+      <section id="admin-accesos" className="consola__panel consola__panel--compacto consola__escena-panel">
+        <header className="consola__panel-top"><h2>Accesos activos</h2></header>
+        <ul className="consola__barras">
+          {accesos.map(([codigo, total]) => (
+            <li key={codigo}>
+              <span>{ROL_API[codigo] || codigo}</span>
+              <i><b style={{ width: `${(total / maxAcceso) * 100}%` }} /></i>
+              <b>{total}</b>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <div className="consola__fila" id="admin-recientes">
+        <section className="consola__panel consola__panel--compacto consola__escena-panel consola__escena-panel--2">
+          <header className="consola__panel-top">
+            <h2>Últimas cuentas</h2>
+            <button type="button" className="btn btn--linea btn--sm" onClick={() => ir("usuarios")}>Ver todas</button>
+          </header>
+          <TablaUsuarios filas={usuarios} compacta />
+        </section>
+        <section className="consola__panel consola__panel--compacto consola__escena-panel consola__escena-panel--3">
+          <header className="consola__panel-top">
+            <h2>Últimos eventos</h2>
+            <button type="button" className="btn btn--linea btn--sm" onClick={() => ir("bitacora")}>Ver bitácora</button>
+          </header>
+          <TablaBitacora filas={eventos} compacta />
+        </section>
+      </div>
+    </>
+  );
+}
+
+function TablaUsuarios({ filas, compacta }) {
+  if (!filas.length) return <p className="consola__vacio consola__vacio--chico">No hay cuentas para mostrar.</p>;
+  return (
+    <div className="tabla-wrap tabla-wrap--plana">
+      <table className={`tabla tabla--densa tabla--admin${compacta ? " tabla--mini" : ""}`}>
+        <thead><tr><th>Cuenta</th><th>Acceso</th><th>Estado</th>{compacta ? null : <th>Último ingreso</th>}</tr></thead>
+        <tbody>
+          {filas.map((cuenta) => (
+            <tr key={cuenta.id}>
+              <td>
+                <div className="persona persona--sm">
+                  <span className="persona__avatar" aria-hidden="true">{inicialesDe(cuenta.nombre)}</span>
+                  <div><strong>{cuenta.nombre}</strong><small>{cuenta.email}</small></div>
+                </div>
+              </td>
+              <td>{cuenta.roles.map((rol) => <span key={rol} className="chip chip--mini">{ROL_API[rol] || rol}</span>)}</td>
+              <td><span className="chip chip--mini chip--neutro">{ESTADO_CUENTA[cuenta.estado] || cuenta.estado}</span></td>
+              {compacta ? null : <td className="consola__fecha">{fechaCorta(cuenta.ultimoAccesoEn)}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TablaBitacora({ filas, compacta }) {
+  if (!filas.length) return <p className="consola__vacio consola__vacio--chico">Aún no hay eventos auditados.</p>;
+  return (
+    <div className="tabla-wrap tabla-wrap--plana">
+      <table className={`tabla tabla--densa tabla--admin${compacta ? " tabla--mini" : ""}`}>
         <thead>
-          <tr><th>Nombre</th><th>Correo</th><th>Acceso</th><th>Estado</th><th>Acción</th></tr>
+          <tr>
+            <th>Fecha</th>
+            <th>Actor</th>
+            <th>Acción</th>
+            {compacta ? null : <th>Recurso</th>}
+          </tr>
         </thead>
         <tbody>
-          {filas.map((cuenta) => {
-            const propia = cuenta.correo === sesion.correo;
-            const base = CUENTAS.some((item) => item.correo === cuenta.correo);
-            const bloqueada = cuenta.estado === "suspendido" || estaBloqueada(cuenta.correo);
-            return (
-              <tr key={cuenta.correo}>
-                <td className="tabla__producto">{cuenta.nombre}</td>
-                <td>{cuenta.correo}</td>
-                <td>{cuenta.roles.map((id) => <span key={id} className={`chip chip--${id}`}>{ROLES[id]?.etiqueta}</span>)}</td>
-                <td><span className={`chip ${bloqueada ? "chip--aviso" : "chip--ok"}`}>{bloqueada ? "Suspendida" : "Activa"}</span></td>
-                <td className="tabla__accion">
-                  <button type="button" className="btn btn--linea" disabled={propia || (base && cuenta.rol === "admin")} onClick={() => onAcceso(cuenta)}>
-                    {propia ? "Sesión actual" : bloqueada ? "Restaurar" : "Suspender"}
+          {filas.map((item) => (
+            <tr key={item.id}>
+              <td className="consola__fecha">{fechaCorta(item.creadoEn)}</td>
+              <td>
+                <strong className="celda-titulo">{item.actor}</strong>
+                {item.actorCorreo ? <span className="celda-sec">{item.actorCorreo}</span> : null}
+              </td>
+              <td>
+                <span className={`chip chip--mini chip--${tonoAccion(item.accion)}`} title={item.accion}>
+                  {accionLegible(item.accion)}
+                </span>
+              </td>
+              {compacta ? null : (
+                <td>
+                  <span className="celda-recurso">{recursoLegible(item.recurso)}</span>
+                  {item.recursoId ? <span className="celda-sec">{item.recursoId}</span> : null}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function UsuariosAdmin({ version }) {
+  const [busqueda, setBusqueda] = useState("");
+  const [rol, setRol] = useState("");
+  const [estado, setEstado] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const [datos, setDatos] = useState(null);
+  const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => { setPagina(1); }, [busqueda, rol, estado]);
+
+  useEffect(() => {
+    let viva = true;
+    setCargando(true);
+    const params = new URLSearchParams({ pagina: String(pagina), limite: "10" });
+    if (busqueda.trim()) params.set("texto", busqueda.trim());
+    if (rol) params.set("rol", rol);
+    if (estado) params.set("estado", estado);
+    solicitar(`/administracion/usuarios?${params}`)
+      .then((lista) => { if (viva) setDatos(lista); })
+      .catch((fallo) => {
+        if (viva) setError(fallo instanceof ApiError ? fallo.detail : "No se pudo leer las cuentas.");
+      })
+      .finally(() => { if (viva) setCargando(false); });
+    return () => { viva = false; };
+  }, [busqueda, rol, estado, pagina, version]);
+
+  return (
+    <section className="consola__panel consola__escena-panel">
+      <div className="consola__barra consola__barra--compacta">
+        <label className="consola__buscar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar nombre o correo" aria-label="Buscar" />
+        </label>
+        <select value={estado} onChange={(e) => setEstado(e.target.value)} aria-label="Estado">
+          {FILTROS_ESTADO.map((item) => <option key={item.valor || "t"} value={item.valor}>{item.etiqueta}</option>)}
+        </select>
+        <select value={rol} onChange={(e) => setRol(e.target.value)} aria-label="Acceso">
+          {FILTROS_ROL.map((item) => <option key={item.valor || "t"} value={item.valor}>{item.etiqueta}</option>)}
+        </select>
+      </div>
+      {error ? <p className="consola__alerta" role="alert">{error}</p> : null}
+      {cargando ? <p className="consola__vacio consola__vacio--chico">Leyendo cuentas…</p> : <TablaUsuarios filas={datos?.usuarios || []} />}
+      {!cargando && datos ? (
+        <Pager pagina={datos.pagina} paginas={datos.paginas} total={datos.total} etiqueta="registro" cambiar={setPagina} />
+      ) : null}
+    </section>
+  );
+}
+
+function ModalidadesAdmin({ version, onCambio }) {
+  const [filas, setFilas] = useState([]);
+  const [error, setError] = useState("");
+  const [ocupado, setOcupado] = useState("");
+
+  useEffect(() => {
+    let viva = true;
+    solicitar("/administracion/modalidades")
+      .then((datos) => { if (viva) setFilas(datos.modalidades || []); })
+      .catch((fallo) => {
+        if (viva) setError(fallo instanceof ApiError ? fallo.detail : "No se pudieron leer las modalidades.");
+      });
+    return () => { viva = false; };
+  }, [version]);
+
+  async function alternar(modalidad) {
+    setOcupado(modalidad.id);
+    setError("");
+    try {
+      await solicitar(`/administracion/modalidades/${modalidad.id}`, {
+        method: "PATCH",
+        cuerpo: { activo: !modalidad.activo },
+      });
+      const datos = await solicitar("/administracion/modalidades");
+      setFilas(datos.modalidades || []);
+      onCambio?.();
+    } catch (fallo) {
+      setError(fallo instanceof ApiError ? fallo.detail : "No se pudo cambiar la modalidad.");
+    } finally {
+      setOcupado("");
+    }
+  }
+
+  return (
+    <section className="consola__panel consola__escena-panel">
+      {error ? <p className="consola__alerta" role="alert">{error}</p> : null}
+      <div className="tabla-wrap tabla-wrap--plana">
+        <table className="tabla tabla--densa tabla--admin tabla--mini">
+          <thead><tr><th>Modalidad</th><th>Código</th><th>Uso</th><th>Acción</th></tr></thead>
+          <tbody>
+            {filas.map((modalidad) => (
+              <tr key={modalidad.id}>
+                <td><strong>{modalidad.nombre}</strong></td>
+                <td className="dato-sec">{modalidad.codigo}</td>
+                <td><span className={`chip chip--mini ${modalidad.activo ? "chip--ok" : "chip--neutro"}`}>{modalidad.activo ? "Activa" : "Inactiva"}</span></td>
+                <td>
+                  <button type="button" className="btn btn--linea btn--sm" disabled={ocupado === modalidad.id} onClick={() => alternar(modalidad)}>
+                    {modalidad.activo ? "Inactivar" : "Activar"}
                   </button>
                 </td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
-function TablaPendientes({ filas, onAprobar }) {
-  if (!filas.length) return <p className="consola__vacio">No hay solicitantes en revisión.</p>;
+function BitacoraAdmin({ version }) {
+  const [busqueda, setBusqueda] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const [datos, setDatos] = useState(null);
+  const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => { setPagina(1); }, [busqueda]);
+
+  useEffect(() => {
+    let viva = true;
+    setCargando(true);
+    const params = new URLSearchParams({ pagina: String(pagina), limite: "10" });
+    if (busqueda.trim()) params.set("texto", busqueda.trim());
+    solicitar(`/administracion/auditoria?${params}`)
+      .then((lista) => { if (viva) setDatos(lista); })
+      .catch((fallo) => {
+        if (viva) setError(fallo instanceof ApiError ? fallo.detail : "No se pudo leer la bitácora.");
+      })
+      .finally(() => { if (viva) setCargando(false); });
+    return () => { viva = false; };
+  }, [busqueda, pagina, version]);
+
   return (
-    <div className="tabla-wrap">
-      <table className="tabla tabla--densa">
-        <thead><tr><th>Nombre</th><th>Correo</th><th>Institución</th><th>Cargo</th><th>Acción</th></tr></thead>
-        <tbody>
-          {filas.map((cuenta) => (
-            <tr key={cuenta.correo}>
-              <td className="tabla__producto">{cuenta.nombre}</td>
-              <td>{cuenta.correo}</td>
-              <td>{cuenta.perfil?.institucion || "—"}</td>
-              <td>{cuenta.perfil?.cargo || "—"}</td>
-              <td className="tabla__accion">
-                <button type="button" className="btn btn--naranja" onClick={() => onAprobar(cuenta)}>Aprobar</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <section className="consola__panel consola__escena-panel">
+      <div className="consola__barra consola__barra--compacta">
+        <label className="consola__buscar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar acción, actor o recurso" aria-label="Buscar" />
+        </label>
+      </div>
+      {error ? <p className="consola__alerta" role="alert">{error}</p> : null}
+      {cargando ? <p className="consola__vacio consola__vacio--chico">Leyendo eventos…</p> : <TablaBitacora filas={datos?.eventos || []} />}
+      {!cargando && datos ? (
+        <Pager pagina={datos.pagina} paginas={datos.paginas} total={datos.total} etiqueta="evento" cambiar={setPagina} />
+      ) : null}
+    </section>
   );
 }
 
-function TablaModalidades({ filas, apagadas, onCambiar }) {
-  if (!filas.length) return <p className="consola__vacio">Ninguna modalidad coincide con la búsqueda.</p>;
+function InvitacionesAdmin() {
+  const [proveedores, setProveedores] = useState([]);
+  const [modo, setModo] = useState("nuevo");
+  const [correo, setCorreo] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [proveedorId, setProveedorId] = useState("");
+  const [mensaje, setMensaje] = useState("");
+  const [error, setError] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    solicitar("/administracion/proveedores")
+      .then((datos) => setProveedores(datos.proveedores || []))
+      .catch(() => setProveedores([]));
+  }, []);
+
+  async function enviar(evento) {
+    evento.preventDefault();
+    setError("");
+    setMensaje("");
+    setEnviando(true);
+    try {
+      const cuerpo = { email: correo.trim() };
+      if (modo === "existente") cuerpo.proveedorId = proveedorId;
+      else cuerpo.nuevoProveedor = { nombreComercial: nombre.trim() };
+      const resultado = await solicitar("/invitaciones", { method: "POST", cuerpo });
+      setMensaje(
+        resultado.correoEnviado
+          ? `Invitación enviada a ${resultado.email}. Vence ${fechaCorta(resultado.venceEn)}.`
+          : `Invitación creada para ${resultado.email}, pero el correo no se pudo enviar. Revisa SMTP.`,
+      );
+      setCorreo("");
+      setNombre("");
+      setProveedorId("");
+    } catch (fallo) {
+      setError(fallo instanceof ApiError ? fallo.detail : "No se pudo crear la invitación.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   return (
-    <div className="tabla-wrap">
-      <table className="tabla tabla--densa">
-        <thead><tr><th>Modalidad</th><th>Código</th><th>Uso</th><th>Acción</th></tr></thead>
-        <tbody>
-          {filas.map((modalidad) => {
-            const apagada = apagadas.has(modalidad.id);
-            return (
-              <tr key={modalidad.id}>
-                <td className="tabla__producto">{modalidad.nombre}</td>
-                <td>{modalidad.codigo}</td>
-                <td><span className={`chip ${apagada ? "chip--neutro" : "chip--ok"}`}>{apagada ? "Inactiva" : "Activa"}</span></td>
-                <td className="tabla__accion">
-                  <button type="button" className="btn btn--linea" onClick={() => onCambiar(modalidad)}>{apagada ? "Activar" : "Inactivar"}</button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <section className="consola__panel consola__escena-panel">
+      <div className="consola__invitacion">
+        <form className="consola__formulario" onSubmit={enviar}>
+          <header className="consola__formulario-top">
+            <h2>Nueva invitación</h2>
+            <p>El proveedor recibe un enlace por correo para crear su acceso al portal.</p>
+          </header>
+          <label>
+            Correo del proveedor
+            <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} required placeholder="contacto@empresa.gt" />
+          </label>
+          <fieldset className="consola__modo">
+            <legend>Tipo de invitación</legend>
+            <label className="consola__opcion">
+              <input type="radio" name="modo-inv" value="nuevo" checked={modo === "nuevo"} onChange={() => setModo("nuevo")} />
+              <span><strong>Empresa nueva</strong><small>Se crea el proveedor y se envía el enlace.</small></span>
+            </label>
+            <label className="consola__opcion">
+              <input type="radio" name="modo-inv" value="existente" checked={modo === "existente"} onChange={() => setModo("existente")} />
+              <span><strong>Proveedor registrado</strong><small>Vincula la invitación a un proveedor ya guardado.</small></span>
+            </label>
+          </fieldset>
+          {modo === "nuevo" ? (
+            <label>
+              Nombre comercial
+              <input value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={2} placeholder="Nombre de la empresa" />
+            </label>
+          ) : (
+            <label>
+              Proveedor
+              <select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)} required>
+                <option value="">{proveedores.length ? "Selecciona…" : "No hay proveedores activos"}</option>
+                {proveedores.map((item) => <option key={item.id} value={item.id}>{item.nombreComercial}</option>)}
+              </select>
+            </label>
+          )}
+          {error ? <p className="consola__aviso consola__aviso--error" role="alert">{error}</p> : null}
+          {mensaje ? <p className="consola__aviso consola__aviso--ok" role="status">{mensaje}</p> : null}
+          <div className="consola__formulario-pie">
+            <button type="submit" className="btn btn--naranja btn--sm" disabled={enviando}>{enviando ? "Enviando…" : "Enviar invitación"}</button>
+          </div>
+        </form>
+        <aside className="consola__invitacion-ayuda" aria-label="Cómo funciona">
+          <p className="consola__ceja">Guía</p>
+          <h3>Qué hace esta invitación</h3>
+          <ol>
+            <li>Se registra la invitación en el servidor con una vigencia limitada.</li>
+            <li>Si el correo está configurado, el proveedor recibe el enlace de acceso.</li>
+            <li>Al aceptarla, queda una cuenta con rol de proveedor.</li>
+          </ol>
+          <p className="consola__nota">Las invitaciones anteriores al mismo correo quedan sin efecto cuando envías una nueva.</p>
+        </aside>
+      </div>
+    </section>
   );
 }
-
-function TablaBitacora({ filas }) {
-  if (!filas.length) return <p className="consola__vacio">Aún no hay movimientos. Cada alta, cambio de acceso o modalidad queda aquí.</p>;
-  return (
-    <div className="tabla-wrap">
-      <table className="tabla tabla--densa">
-        <thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Recurso</th><th>Detalle</th></tr></thead>
-        <tbody>
-          {filas.map((item) => (
-            <tr key={`${item.creadoEn}-${item.accion}-${item.recursoId || ""}`}>
-              <td>{fechaDe(item.creadoEn)}</td>
-              <td>{item.actor}</td>
-              <td>{item.accion}</td>
-              <td>{item.recurso}</td>
-              <td>{detalleDe(item)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-

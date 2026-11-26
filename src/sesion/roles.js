@@ -5,11 +5,17 @@ export const ROLES = {
     resumen: "Administra usuarios, modalidades y la bitácora.",
     destino: "/admin",
   },
+  jefe: {
+    id: "jefe",
+    etiqueta: "Jefe",
+    resumen: "Asigna las solicitudes a los trabajadores del INE.",
+    destino: "/personal",
+  },
   trabajador: {
     id: "trabajador",
     etiqueta: "Trabajador",
-    resumen: "Revisa las solicitudes que envían las instituciones.",
-    destino: "/cuenta",
+    resumen: "Atiende las solicitudes que el jefe le asigna.",
+    destino: "/personal",
   },
   proveedor: {
     id: "proveedor",
@@ -25,7 +31,7 @@ export const ROLES = {
   },
 };
 
-const PRIORIDAD = ["admin", "trabajador", "proveedor", "solicitante"];
+const PRIORIDAD = ["admin", "jefe", "trabajador", "proveedor", "solicitante"];
 
 export const CLAVE_EJEMPLO = "Dpir-2026";
 
